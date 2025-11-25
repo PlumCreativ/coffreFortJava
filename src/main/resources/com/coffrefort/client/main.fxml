@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.*?>
+
+<BorderPane fx:controller="com.coffrefort.client.controllers.MainController"
+            xmlns="http://javafx.com/javafx/21.0.2" xmlns:fx="http://javafx.com/fxml/1">
+    <padding>
+        <Insets top="10" right="10" bottom="10" left="10"/>
+    </padding>
+    <left>
+        <TreeView fx:id="treeView" showRoot="false" BorderPane.alignment="CENTER_LEFT"/>
+    </left>
+    <center>
+        <TableView fx:id="table" BorderPane.alignment="CENTER">
+            <columns>
+                <TableColumn fx:id="nameCol" text="Nom" prefWidth="260"/>
+                <TableColumn fx:id="sizeCol" text="Taille" prefWidth="120"/>
+                <TableColumn fx:id="dateCol" text="Modifié le" prefWidth="180"/>
+            </columns>
+        </TableView>
+    </center>
+    <bottom>
+        <HBox spacing="10">
+            <padding>
+                <Insets top="10" right="0" bottom="0" left="0"/>
+            </padding>
+            <children>
+                <Button text="Uploader (simulation)" onAction="#handleUpload"/>
+                <Label text="Quota:"/>
+                <ProgressBar fx:id="quotaBar" prefWidth="300"/>
+                <Label fx:id="quotaLabel"/>
+            </children>
+        </HBox>
+    </bottom>
+</BorderPane>
