@@ -22,7 +22,8 @@ public class App extends Application {
         stage.setTitle("Coffre‑fort numérique — Mini client");
 
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/login.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/login2.fxml"));
+
             // Controller factory pour injecter ApiClient et callback
             loader.setControllerFactory(type -> {
                 if (type == LoginController.class) {
@@ -42,7 +43,9 @@ public class App extends Application {
             });
 
             Parent root = loader.load();
-            stage.setScene(new Scene(root, 420, 320));
+            Scene scene = new Scene(root, 420, 600);
+            stage.setTitle("Coffre-fort numérique");
+            stage.setScene(scene);
             stage.show();
         } catch (Exception e) {
             throw new RuntimeException("Impossible de charger login.fxml", e);
@@ -69,6 +72,7 @@ public class App extends Application {
             mainStage.setTitle("Coffre‑fort — Espace personnel");
             mainStage.setScene(new Scene(root, 1024, 640));
             mainStage.show();
+
             // Fermer la fenêtre de login
             loginStage.close();
         } catch (Exception e) {
