@@ -75,7 +75,7 @@ public class App extends Application {
                     c.setApiClient(apiClient);
 
                     // Après inscription réussie → retour à l'écran de login
-                    c.setOnRegisterSuccess(() -> openLogin(stage));
+                    c.setOnRegisterSuccess(() -> openMainAndClose(stage));
 
                     // Clique sur "Se connecter" → retour à l'écran de login
                     c.setOnGoToLogin(() -> openLogin(stage));
