@@ -124,6 +124,18 @@ public class RegisterView  {
         root.add(legalBox, 1, 6);
 
         clearMessages();
+
+        root.setFocusTraversable(true);
+
+        root.setOnMouseClicked(event -> { //ca ne marche pas !!!
+            Object target = event.getTarget();
+
+            //ne pas défocuser si je clique sur un des TextField ou PasswordField
+            if (!(target instanceof TextField) && !(target instanceof PasswordField)) {
+                root.requestFocus();
+            }
+
+        });
     }
 
     private void triggerRegister() {
