@@ -16,14 +16,16 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 public class LoginController {
+
+    //Propriétés
     @FXML private TextField emailField;
     @FXML private PasswordField passwordField;
     @FXML private Label errorLabel;
+
     @FXML private Button connexionButton;
     @FXML private Label statusLabel;
 
     private final HttpClient http = HttpClient.newHttpClient();
-    private final ObjectMapper mapper = new ObjectMapper();
 
     private ApiClient apiClient;
 
@@ -34,6 +36,7 @@ public class LoginController {
     private Runnable onGoToRegister;
 
 
+    //méthodes
     public void setApiClient(ApiClient apiClient) {
         this.apiClient = apiClient;
     }
@@ -74,7 +77,7 @@ public class LoginController {
             connexionButton.setDisable(true);
         }
 
-        if(statusLabel != null) {
+        if(statusLabel != null) { //=>????????????????????
             statusLabel.setText("Connexion...");
         }
 
