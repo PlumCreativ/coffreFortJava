@@ -3,121 +3,397 @@ package com.coffrefort.client.controllers;
 import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.model.FileEntry;
 import com.coffrefort.client.model.NodeItem;
-import com.coffrefort.client.model.Quota;
-import javafx.beans.property.SimpleStringProperty;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
 import java.io.File;
 import java.text.DecimalFormat;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.Optional;
 
 public class MainController {
+
     @FXML private TreeView<NodeItem> treeView;
     @FXML private TableView<FileEntry> table;
     @FXML private TableColumn<FileEntry, String> nameCol;
-    @FXML private TableColumn<FileEntry, Long> sizeCol;
+    @FXML private TableColumn<FileEntry, String> sizeCol;
     @FXML private TableColumn<FileEntry, String> dateCol;
+
     @FXML private ProgressBar quotaBar;
     @FXML private Label quotaLabel;
+    @FXML private Label userEmailLabel;
+    @FXML private Label statusLabel;
+    @FXML private Label fileCountLabel;
+
+    @FXML private Button uploadButton;
+    @FXML private Button shareButton;
+    @FXML private Button deleteButton;
+    @FXML private Button newFolderButton;
+    @FXML private Button logoutButton;
 
     private ApiClient apiClient;
+    private Runnable onLogout;
+    private ObservableList<FileEntry> fileList = FXCollections.observableArrayList();
+    private NodeItem currentFolder;
 
     public void setApiClient(ApiClient apiClient) {
         this.apiClient = apiClient;
-        // si initialize() a déjà été appelé, on peut charger les données
-        if (treeView != null) {
-            loadData();
+    }
+
+    public void setOnLogout(Runnable callback) {
+        this.onLogout = callback;
+    }
+
+    public void setUserEmail(String email) {
+        if (userEmailLabel != null) {
+            userEmailLabel.setText(email);
         }
     }
 
     @FXML
     private void initialize() {
+        setupTable();
+        setupTreeView();
+        //loadData();
+        updateFileCount();
+    }
+
+    private void setupTable() {
         // Configuration des colonnes
-        if (nameCol != null) {
-            nameCol.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getName()));
-        }
-        if (sizeCol != null) {
-            sizeCol.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("size"));
-            sizeCol.setCellFactory(col -> new TableCell<>() {
-                @Override protected void updateItem(Long size, boolean empty) {
-                    super.updateItem(size, empty);
-                    setText(empty || size == null ? null : humanSize(size));
+        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+        sizeCol.setCellValueFactory(new PropertyValueFactory<>("sizeFormatted"));
+        dateCol.setCellValueFactory(new PropertyValueFactory<>("updatedAt"));
+
+        table.setItems(fileList);
+
+        // Activer/désactiver les boutons selon la sélection
+        table.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            boolean hasSelection = newVal != null;
+            shareButton.setDisable(!hasSelection);
+            deleteButton.setDisable(!hasSelection);
+
+            // Changer la couleur des boutons
+            if (hasSelection) {
+                shareButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+                deleteButton.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+            } else {
+                shareButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+                deleteButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+            }
+        });
+
+        // Double-clic pour télécharger
+        table.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) {
+                FileEntry selected = table.getSelectionModel().getSelectedItem();
+                if (selected != null) {
+                    handleDownload(selected);
                 }
-            });
-        }
-        if (dateCol != null) {
-            dateCol.setCellValueFactory(cell -> new SimpleStringProperty(
-                    cell.getValue().getUpdatedAt().atZone(ZoneId.systemDefault())
-                            .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
-            ));
-        }
-
-        if (treeView != null) {
-            treeView.getSelectionModel().selectedItemProperty().addListener((obs, o, sel) -> {
-                if (sel != null) refreshFiles(sel.getValue());
-            });
-        }
-
-        // Charger les données si l'apiClient est déjà injecté
-        if (apiClient != null) {
-            loadData();
-        }
+            }
+        });
     }
 
-    private void loadData() {
-        // Arbre
-        List<NodeItem> roots = apiClient.listRoot();
-        TreeItem<NodeItem> hiddenRoot = new TreeItem<>(NodeItem.folder("root"));
-        for (NodeItem n : roots) {
-            hiddenRoot.getChildren().add(buildTree(n));
-        }
-        treeView.setRoot(hiddenRoot);
-        if (!hiddenRoot.getChildren().isEmpty()) {
-            treeView.getSelectionModel().select(hiddenRoot.getChildren().get(0));
-        }
+    private void setupTreeView() {
+        // Configuration de l'arborescence
+        treeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                currentFolder = newVal.getValue();
+                loadFiles(currentFolder);
+            }
+        });
 
-        // Quota
-        Quota q = apiClient.getQuota();
-        quotaBar.setProgress(q.getUsageRatio());
-        quotaLabel.setText(humanSize(q.getUsed()) + " / " + humanSize(q.getMax()));
+        // Style de l'arborescence
+        treeView.setCellFactory(tv -> new TreeCell<NodeItem>() {
+            @Override
+            protected void updateItem(NodeItem item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    setText("📁 " + item.getName());
+                }
+            }
+        });
     }
+
+//    private void loadData() {
+//        new Thread(() -> {
+//            try {
+//                // Charger l'arborescence
+//                NodeItem root = apiClient.listRoot();
+//
+//                Platform.runLater(() -> {
+//                    TreeItem<NodeItem> rootItem = buildTree(root);
+//                    treeView.setRoot(rootItem);
+//
+//                    // Sélectionner le premier dossier
+//                    if (!rootItem.getChildren().isEmpty()) {
+//                        treeView.getSelectionModel().select(rootItem.getChildren().get(0));
+//                    }
+//                });
+//
+//                // Charger les quotas
+//                updateQuota();
+//
+//                Platform.runLater(() -> {
+//                    statusLabel.setText("Données chargées");
+//                });
+//
+//            } catch (Exception e) {
+//                Platform.runLater(() -> {
+//                    showError("Erreur de chargement", "Impossible de charger les données: " + e.getMessage());
+//                    statusLabel.setText("Erreur de chargement");
+//                });
+//            }
+//        }).start();
+//    }
 
     private TreeItem<NodeItem> buildTree(NodeItem node) {
-        TreeItem<NodeItem> ti = new TreeItem<>(node);
+        TreeItem<NodeItem> item = new TreeItem<>(node);
+        item.setExpanded(true);
+
         for (NodeItem child : node.getChildren()) {
-            ti.getChildren().add(buildTree(child));
+            item.getChildren().add(buildTree(child));
         }
-        ti.setExpanded(true);
-        return ti;
+
+        return item;
     }
 
-    private void refreshFiles(NodeItem node) {
-        table.getItems().setAll(node.getFiles());
+    private void loadFiles(NodeItem folder) {
+        fileList.clear();
+        fileList.addAll(folder.getFiles());
+        updateFileCount();
+        statusLabel.setText("Dossier: " + folder.getName());
+    }
+
+//    private void updateQuota() {
+//        new Thread(() -> {
+//            try {
+//                var quota = apiClient.getQuota();
+//
+//                Platform.runLater(() -> {
+//                    double ratio = quota.ratio();
+//                    quotaBar.setProgress(ratio);
+//
+//                    String used = formatSize(quota.used());
+//                    String total = formatSize(quota.total());
+//                    quotaLabel.setText(used + " / " + total);
+//
+//                    // Changer la couleur selon l'utilisation
+//                    if (ratio >= 0.9) {
+//                        quotaBar.setStyle("-fx-accent: #d9534f;"); // Rouge
+//                    } else if (ratio >= 0.8) {
+//                        quotaBar.setStyle("-fx-accent: #f0ad4e;"); // Orange
+//                    } else {
+//                        quotaBar.setStyle("-fx-accent: #980b0b;"); // Rouge normal
+//                    }
+//                });
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//        }).start();
+//    }
+
+    private void updateFileCount() {
+        int count = fileList.size();
+        fileCountLabel.setText(count + " fichier" + (count > 1 ? "s" : ""));
     }
 
     @FXML
     private void handleUpload() {
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle("Choisir un fichier à envoyer (simulation)");
-        File file = chooser.showOpenDialog(table.getScene().getWindow());
-        if (file != null) {
-            Alert ok = new Alert(Alert.AlertType.INFORMATION);
-            ok.setHeaderText("Upload simulé");
-            ok.setContentText("Fichier sélectionné: " + file.getName());
-            ok.showAndWait();
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Sélectionner un fichier");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Tous les fichiers", "*.*"),
+                new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.webp"),
+                new FileChooser.ExtensionFilter("Documents", "*.pdf", "*.doc", "*.docx")
+        );
+
+        Stage stage = (Stage) uploadButton.getScene().getWindow();
+        File file = fileChooser.showOpenDialog(stage);
+
+//        if (file != null) {
+//            uploadFile(file);
+//        }
+    }
+
+//    private void uploadFile(File file) {
+//        statusLabel.setText("Upload en cours: " + file.getName());
+//        uploadButton.setDisable(true);
+//
+//        new Thread(() -> {
+//            try {
+//                // Simuler l'upload
+//                Thread.sleep(1000);
+//                boolean success = apiClient.uploadFile(file, currentFolder);
+//
+//                Platform.runLater(() -> {
+//                    if (success) {
+//                        showInfo("Upload réussi", "Le fichier a été uploadé avec succès.");
+//                        loadFiles(currentFolder); // Recharger la liste
+//                        updateQuota();
+//                        statusLabel.setText("Upload terminé: " + file.getName());
+//                    } else {
+//                        showError("Erreur d'upload", "Impossible d'uploader le fichier.");
+//                        statusLabel.setText("Erreur d'upload");
+//                    }
+//                    uploadButton.setDisable(false);
+//                });
+//            } catch (Exception e) {
+//                Platform.runLater(() -> {
+//                    showError("Erreur", "Erreur lors de l'upload: " + e.getMessage());
+//                    statusLabel.setText("Erreur d'upload");
+//                    uploadButton.setDisable(false);
+//                });
+//            }
+//        }).start();
+//    }
+
+    @FXML
+    private void handleShare() {
+        FileEntry selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) return;
+
+        // TODO: Ouvrir le dialog de partage
+        showInfo("Partage", "Fonctionnalité de partage pour: " + selected.getName());
+    }
+
+    @FXML
+    private void handleDelete() {
+        FileEntry selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) return;
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirmation");
+        confirm.setHeaderText("Supprimer le fichier ?");
+        confirm.setContentText("Êtes-vous sûr de vouloir supprimer \"" + selected.getName() + "\" ?");
+
+        Optional<ButtonType> result = confirm.showAndWait();
+//        if (result.isPresent() && result.get() == ButtonType.OK) {
+//            deleteFile(selected);
+//        }
+    }
+
+//    private void deleteFile(FileEntry file) {
+//        statusLabel.setText("Suppression en cours...");
+//
+//        new Thread(() -> {
+//            try {
+//                boolean success = apiClient.deleteFile(file.getId());
+//
+//                Platform.runLater(() -> {
+//                    if (success) {
+//                        fileList.remove(file);
+//                        updateFileCount();
+//                        updateQuota();
+//                        statusLabel.setText("Fichier supprimé: " + file.getName());
+//                    } else {
+//                        showError("Erreur", "Impossible de supprimer le fichier.");
+//                        statusLabel.setText("Erreur de suppression");
+//                    }
+//                });
+//            } catch (Exception e) {
+//                Platform.runLater(() -> {
+//                    showError("Erreur", "Erreur: " + e.getMessage());
+//                    statusLabel.setText("Erreur de suppression");
+//                });
+//            }
+//        }).start();
+//    }
+
+    private void handleDownload(FileEntry file) {
+        statusLabel.setText("Téléchargement: " + file.getName());
+        // TODO: Implémenter le téléchargement
+        showInfo("Téléchargement", "Téléchargement de: " + file.getName());
+    }
+
+    @FXML
+    private void handleNewFolder() {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Nouveau dossier");
+        dialog.setHeaderText("Créer un nouveau dossier");
+        dialog.setContentText("Nom du dossier:");
+
+        Optional<String> result = dialog.showAndWait();
+//        result.ifPresent(name -> {
+//            if (!name.trim().isEmpty()) {
+//                createFolder(name.trim());
+//            }
+//        });
+    }
+
+//    private void createFolder(String name) {
+//        statusLabel.setText("Création du dossier...");
+//
+//        new Thread(() -> {
+//            try {
+//                boolean success = apiClient.createFolder(name, currentFolder);
+//
+//                Platform.runLater(() -> {
+//                    if (success) {
+//                        loadData(); // Recharger l'arborescence
+//                        statusLabel.setText("Dossier créé: " + name);
+//                    } else {
+//                        showError("Erreur", "Impossible de créer le dossier.");
+//                        statusLabel.setText("Erreur de création");
+//                    }
+//                });
+//            } catch (Exception e) {
+//                Platform.runLater(() -> {
+//                    showError("Erreur", "Erreur: " + e.getMessage());
+//                    statusLabel.setText("Erreur de création");
+//                });
+//            }
+//        }).start();
+//    }
+
+    @FXML
+    private void handleOpenShares() {
+        // TODO: Ouvrir la fenêtre des partages
+        showInfo("Mes partages", "Fonctionnalité à venir");
+    }
+
+    @FXML
+    private void handleLogout() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Déconnexion");
+        confirm.setHeaderText("Voulez-vous vous déconnecter ?");
+        confirm.setContentText("Vous devrez vous reconnecter pour accéder à vos fichiers.");
+
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            if (onLogout != null) {
+                onLogout.run();
+            }
         }
     }
 
-    private static String humanSize(long bytes) {
-        if (bytes < 1024) return bytes + " o";
-        double v = bytes;
-        String[] units = {"Ko", "Mo", "Go", "To"};
-        int i = -1;
-        while (v >= 1024 && i < units.length - 1) { v /= 1024.0; i++; }
-        return new DecimalFormat("0.##").format(v) + " " + units[i];
+    private String formatSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        char unit = "KMGTPE".charAt(exp - 1);
+        return String.format("%.1f %sB", bytes / Math.pow(1024, exp), unit);
+    }
+
+    private void showError(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
+
+    private void showInfo(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 }

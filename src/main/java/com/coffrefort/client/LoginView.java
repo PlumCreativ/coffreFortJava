@@ -90,6 +90,8 @@ public class LoginView {
         legalBox.setAlignment(Pos.CENTER_LEFT);
         root.add(legalBox, 1, 6);
 
+        root.setOnMouseClicked(event -> root.requestFocus());
+
     }
 
     private void triggerLogin() {

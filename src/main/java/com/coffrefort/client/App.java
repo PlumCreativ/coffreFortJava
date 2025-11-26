@@ -23,20 +23,27 @@ public class App extends Application {
     @Override
     public void start(Stage stage) {
         stage.setTitle("Coffre‑fort numérique — Mini client");
+        openLogin(stage);
+    }
 
+    //ÉCRAN CONNEXION
+    private void openLogin(Stage stage) {
         try {
+
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/login2.fxml"));
 
-            // Controller factory pour injecter ApiClient et callback
+            // Controller factory pour injecter ApiClient et callbacks
             loader.setControllerFactory(type -> {
                 if (type == LoginController.class) {
                     LoginController c = new LoginController();
                     c.setApiClient(apiClient);
-                    c.setOnSuccess(() -> {
 
-                        // Ouvre la fenêtre principale via FXML
-                        openMainAndClose(stage);
-                    });
+                    // Après connexion réussie → tableau de bord
+                    c.setOnSuccess(() -> openMainAndClose(stage));
+
+                    // Clique sur "S'inscrire" → ouvrir l'écran d'inscription
+                    c.setOnGoToRegister(() -> openRegister(stage));
+
                     return c;
                 }
                 try {
@@ -57,7 +64,7 @@ public class App extends Application {
     }
 
 
-    //Inscription
+    //ÉCRAN INSCRIPTION
     private void openRegister(Stage stage) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/register.fxml"));
@@ -68,10 +75,10 @@ public class App extends Application {
                     c.setApiClient(apiClient);
 
                     // Après inscription réussie → retour à l'écran de login
-                    c.setOnRegisterSuccess(() -> start(stage));
+                    c.setOnRegisterSuccess(() -> openLogin(stage));
 
                     // Clique sur "Se connecter" → retour à l'écran de login
-                    c.setOnGoToLogin(() -> start(stage));
+                    c.setOnGoToLogin(() -> openLogin(stage));
 
                     return c;
                 }
@@ -92,7 +99,7 @@ public class App extends Application {
         }
     }
 
-    // accès au tableau de bord
+    // TABLEAU DE BORD
     private void openMainAndClose(Stage loginStage) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/main.fxml"));
