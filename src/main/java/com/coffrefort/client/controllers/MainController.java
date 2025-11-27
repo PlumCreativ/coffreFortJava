@@ -7,21 +7,14 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.File;
-import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.Optional;
-import com.coffrefort.client.config.AppProperties;
 
 public class MainController {
 
@@ -68,13 +61,6 @@ public class MainController {
         setupTreeView();
         //loadData();
         updateFileCount();
-
-        String email = AppProperties.get("auth.email");
-        if(email != null && !email.isEmpty()){
-            userEmailLabel.setText(email);
-        }
-
-        System.out.println("userEmail: " + userEmailLabel.getText());
     }
 
     private void setupTable() {
@@ -221,41 +207,53 @@ public class MainController {
 
     @FXML
     private void handleUpload() {
-        try{
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/uploadDialog.fxml")
-            );
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Sélectionner un fichier");
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Tous les fichiers", "*.*"),
+                new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.webp"),
+                new FileChooser.ExtensionFilter("Documents", "*.pdf", "*.doc", "*.docx")
+        );
 
-            Parent root = loader.load();
+        Stage stage = (Stage) uploadButton.getScene().getWindow();
+        File file = fileChooser.showOpenDialog(stage);
 
-            //récupération du contrôleur
-            UploadDialogController controller = loader.getController();
-            controller.setApiClient(apiClient);
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Uploader des fichiers");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(uploadButton.getScene().getWindow());
-            dialogStage.setScene(new Scene(root));
-            controller.setDialogStage(dialogStage);
-
-            //callback pour rafraîchir après upload
-            controller.setOnUploadSuccess(() ->{
-
-                if(currentFolder != null){
-                    loadFiles(currentFolder);
-                }
-                statusLabel.setText("Upload terminé");
-            });
-
-            dialogStage.showAndWait();
-
-        }catch(Exception e){
-            e.printStackTrace();
-            showError("Erreur", "Impossible d'ouvrir la fenêtre d'upload "+e.getMessage());
-        }
+//        if (file != null) {
+//            uploadFile(file);
+//        }
     }
 
+//    private void uploadFile(File file) {
+//        statusLabel.setText("Upload en cours: " + file.getName());
+//        uploadButton.setDisable(true);
+//
+//        new Thread(() -> {
+//            try {
+//                // Simuler l'upload
+//                Thread.sleep(1000);
+//                boolean success = apiClient.uploadFile(file, currentFolder);
+//
+//                Platform.runLater(() -> {
+//                    if (success) {
+//                        showInfo("Upload réussi", "Le fichier a été uploadé avec succès.");
+//                        loadFiles(currentFolder); // Recharger la liste
+//                        updateQuota();
+//                        statusLabel.setText("Upload terminé: " + file.getName());
+//                    } else {
+//                        showError("Erreur d'upload", "Impossible d'uploader le fichier.");
+//                        statusLabel.setText("Erreur d'upload");
+//                    }
+//                    uploadButton.setDisable(false);
+//                });
+//            } catch (Exception e) {
+//                Platform.runLater(() -> {
+//                    showError("Erreur", "Erreur lors de l'upload: " + e.getMessage());
+//                    statusLabel.setText("Erreur d'upload");
+//                    uploadButton.setDisable(false);
+//                });
+//            }
+//        }).start();
+//    }
 
     @FXML
     private void handleShare() {
@@ -363,92 +361,16 @@ public class MainController {
 
     @FXML
     private void handleLogout() {
-        logoutButton.setDisable(true);
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/confirmLogout.fxml")
-            );
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Déconnexion");
+        confirm.setHeaderText("Voulez-vous vous déconnecter ?");
+        confirm.setContentText("Vous devrez vous reconnecter pour accéder à vos fichiers.");
 
-            VBox root = loader.load();
-
-            // Récupération du contrôleur
-            ConfirmLogoutController controller = loader.getController();
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Confirmer la déconnexion");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(logoutButton.getScene().getWindow());
-            dialogStage.setScene(new Scene(root));
-
-            // Injection du stage et de la logique de déconnexion
-            controller.setDialogStage(dialogStage);
-            controller.setOnLogoutConfirmed(() -> {
-                // Déconnexion (suppression du token)
-                apiClient.logout();
-                System.out.println("Déconnexion effectuée. Retour à l'écran de connexion...");
-
-                // Fermer la fenêtre de dialogue AVANT de changer de scène
-                dialogStage.close();
-
-                // Utiliser Platform.runLater pour changer de scène de manière sûre
-                Platform.runLater(() -> {
-                    try {
-                        FXMLLoader loginLoader = new FXMLLoader(
-                                getClass().getResource("/com/coffrefort/client/login2.fxml")
-                        );
-                        Parent loginRoot = loginLoader.load();
-
-                        // Récupérer le contrôleur du login
-                        LoginController loginController = loginLoader.getController();
-
-                        // Injecter l'ApiClient existant
-                        loginController.setApiClient(apiClient);
-
-                        // Récupérer la fenêtre principale (Stage)
-                        Stage stage = (Stage) logoutButton.getScene().getWindow();
-
-                        // Remplacer la scène par celle du login
-                        Scene loginScene = new Scene(loginRoot);
-                        stage.setScene(loginScene);
-                        stage.setTitle("Connexion - CryptoVault");
-                        stage.show();
-
-                        System.out.println("Redirection vers la page de connexion réussie.");
-
-                    } catch (IOException e) {
-                        System.err.println("Erreur lors du chargement de login2.fxml");
-                        e.printStackTrace();
-
-                        // Afficher un message d'erreur à l'utilisateur
-                        Alert alert = new Alert(Alert.AlertType.ERROR);
-                        alert.setTitle("Erreur");
-                        alert.setHeaderText("Erreur de déconnexion");
-                        alert.setContentText("Impossible de charger l'écran de connexion.");
-                        alert.showAndWait();
-                    }
-                });
-            });
-
-            dialogStage.showAndWait();
-
-        } catch (IOException e) {
-            System.err.println("Erreur lors du chargement de confirmLogout.fxml");
-            e.printStackTrace();
-
-            // Afficher un message d'erreur
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Erreur");
-            alert.setHeaderText("Erreur de déconnexion");
-            alert.setContentText("Impossible de charger la fenêtre de confirmation.");
-            alert.showAndWait();
-
-        } catch (Exception e) {
-            System.err.println("Erreur inattendue lors de la déconnexion");
-            e.printStackTrace();
-
-        } finally {
-            // Réactiver le bouton après fermeture du dialogue
-            logoutButton.setDisable(false);
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            if (onLogout != null) {
+                onLogout.run();
+            }
         }
     }
 
