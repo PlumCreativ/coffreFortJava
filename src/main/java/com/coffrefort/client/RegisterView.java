@@ -30,7 +30,6 @@ public class RegisterView  {
     private final Hyperlink loginLink = new Hyperlink("Se connecter");
     private final Hyperlink legalLink = new Hyperlink("Mentions Légales");
 
-
     /** Callback (email, password, confirmPassword) */
     @FunctionalInterface
     public interface TriConsumer<A, B, C> {
