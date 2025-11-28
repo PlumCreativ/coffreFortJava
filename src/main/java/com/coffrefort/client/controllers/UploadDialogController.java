@@ -17,6 +17,7 @@ import java.util.List;
 
 public class UploadDialogController {
 
+    //propriétés
     @FXML private Button selectFileButton;
     @FXML private Button cancelButton;
     @FXML private Button uploadButton;
@@ -29,7 +30,6 @@ public class UploadDialogController {
     @FXML private Label progressPercentLabel;
     @FXML private ProgressBar uploadProgressBar;
     @FXML private Label messageLabel;
-
 
     private final List<File> selectedFiles = new ArrayList<>();
 
@@ -69,6 +69,9 @@ public class UploadDialogController {
     }
 
 
+    /** à compléter et à vérifier!!!
+     * Gestion de la sélection d'un file ou plusieurs file
+     */
     @FXML
     private void handleSelectFile() {
         Window owner = getWindow();
@@ -89,6 +92,9 @@ public class UploadDialogController {
         }
     }
 
+    /**
+     * Gestion de l'upload
+     */
     @FXML
     private void handleUpload() {
         if (selectedFiles.isEmpty()) {
@@ -205,6 +211,9 @@ public class UploadDialogController {
         new Thread(uploadTask, "upload-task").start();
     }
 
+    /**
+     * Gestion de "annulation"
+     */
     @FXML
     private void handleCancel() {
         closeDialog();
@@ -247,6 +256,11 @@ public class UploadDialogController {
         }
     }
 
+    /** à vérifier => il y a un FileEntry et dans le MainController
+     * formater la taille
+     * @param bytes
+     * @return
+     */
     private String formatSize(long bytes) {
         if (bytes < 1024) return bytes + " o";
         double kb = bytes / 1024.0;
@@ -257,6 +271,10 @@ public class UploadDialogController {
         return String.format("%.2f Go", gb);
     }
 
+    /**
+     * Afficher les messages d'erreur
+     * @param text
+     */
     private void showErrorMessage(String text) {
         messageLabel.setText(text);
         messageLabel.setStyle("-fx-text-fill: #b00020; -fx-background-color: #fdecea;");
@@ -264,6 +282,10 @@ public class UploadDialogController {
         messageLabel.setManaged(true);
     }
 
+    /**
+     * Afficher les messages de réussite
+     * @param text
+     */
     private void showSuccessMessage(String text) {
         messageLabel.setText(text);
         messageLabel.setStyle("-fx-text-fill: #1b5e20; -fx-background-color: #e8f5e9;");
@@ -271,11 +293,17 @@ public class UploadDialogController {
         messageLabel.setManaged(true);
     }
 
+    /**
+     * Cacher le messagelabel
+     */
     private void hideMessage() {
         messageLabel.setVisible(false);
         messageLabel.setManaged(false);
     }
 
+    /**
+     * fermer la fenêtre
+     */
     private void closeDialog() {
         if (dialogStage != null) {
             dialogStage.close();
@@ -288,6 +316,10 @@ public class UploadDialogController {
         }
     }
 
+    /**
+     * sélection de la fenêtre "concernéé"
+     * @return
+     */
     private Window getWindow() {
         if (dialogStage != null) {
             return dialogStage;

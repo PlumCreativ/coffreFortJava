@@ -37,8 +37,6 @@ public class RegisterController extends Application {
     @FXML private Button registerButton1;
     @FXML private Label statusLabel1;
 
-
-
     private ApiClient apiClient;
 
     private Runnable onRegisterSuccess;
@@ -59,7 +57,9 @@ public class RegisterController extends Application {
     }
 
 
-    //Handler bouton pour s'inscrire
+    /**
+     * Gestion de l'Inscription et connexion: l'un après l'autre
+     */
     @FXML
     public void handleRegister(){
 
@@ -198,7 +198,10 @@ public class RegisterController extends Application {
 
     }
 
-    //Handler de lien de se connecter
+
+    /**
+     * Gestion du lien de "se connecter"
+     */
     @FXML
     public void handleGoToLogin(){
         openLogin();
@@ -239,7 +242,6 @@ public class RegisterController extends Application {
     public void showSuccess(String message){
         successLabel1.setText(message);
     }
-
 
 
     public static void main(String[] args) {

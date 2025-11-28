@@ -400,6 +400,10 @@ public class UploadDialogView {
     // Progress management
     // =========================
 
+    /**
+     *
+     * @param show
+     */
     public void showProgress(boolean show) {
         progressContainer.setVisible(show);
         progressContainer.setManaged(show);

@@ -7,6 +7,7 @@ import javafx.stage.Stage;
 
 public class ConfirmLogoutController {
 
+    //propriétés
     @FXML private Button cancelButton;
     @FXML private Button confirmButton;
     @FXML private Label infoLabel;
@@ -43,6 +44,9 @@ public class ConfirmLogoutController {
         }
     }
 
+    /**
+     * Gestion de la confirmation de déconnection
+     */
     @FXML
     private void handleConfirm() {
         try {

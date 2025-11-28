@@ -36,6 +36,17 @@ public class JwtUtils {
         return JsonUtils.extractJsonField(json, "email");
     }
 
+    //récupérer la valeur du champ "user_id" dans le payload JSON
+    public static String extractUserID(String jwt){
+        String json = decodePayload(jwt);
+        if(json == null) return null;
+
+        System.out.println("JWT Payload décodé: " + json); // Debug
+        return JsonUtils.extractJsonNumberField(json, "user_id");
+    }
+
+
+
     private JwtUtils(){};
 }
 

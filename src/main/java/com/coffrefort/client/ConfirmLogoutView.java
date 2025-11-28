@@ -29,6 +29,7 @@ public class ConfirmLogoutView {
         buildUi();
     }
 
+
     private void buildUi() {
         root.setPadding(new Insets(20));
         root.setStyle("-fx-background-color: #E5E5E5; -fx-background-radius: 8;");

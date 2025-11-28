@@ -6,6 +6,7 @@ import java.util.Properties;
 
 public class AppProperties {
 
+    //méthodes
     private static Properties prop = new Properties();
 
     public static void set(String key, String value) {

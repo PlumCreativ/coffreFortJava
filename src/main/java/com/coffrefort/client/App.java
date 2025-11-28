@@ -26,7 +26,11 @@ public class App extends Application {
         openLogin(stage);
     }
 
-    //ÉCRAN CONNEXION
+
+    /**
+     * ÉCRAN CONNEXION
+     * @param stage
+     */
     private void openLogin(Stage stage) {
         try {
 
@@ -64,7 +68,10 @@ public class App extends Application {
     }
 
 
-    //ÉCRAN INSCRIPTION
+    /**
+     * ÉCRAN INSCRIPTION
+     * @param stage
+     */
     private void openRegister(Stage stage) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/register.fxml"));
@@ -99,7 +106,11 @@ public class App extends Application {
         }
     }
 
-    // TABLEAU DE BORD
+
+    /**
+     * TABLEAU DE BORD
+     * @param loginStage
+     */
     private void openMainAndClose(Stage loginStage) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/main.fxml"));

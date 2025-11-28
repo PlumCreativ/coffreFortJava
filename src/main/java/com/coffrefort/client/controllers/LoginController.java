@@ -57,7 +57,9 @@ public class LoginController {
         this.onGoToRegister = onGoToRegister;
     }
 
-
+    /**
+     * Gestion de Connexion
+     */
     @FXML
     public void handleLogin() {
         if (apiClient == null) {
@@ -126,8 +128,9 @@ public class LoginController {
     }
 
 
-
-    // Handler du lien "S'inscrire"
+    /**
+     * Gestion du lien "S'inscrire"
+     */
     @FXML
     public void handleGoToRegister() {
         if (onGoToRegister != null) {

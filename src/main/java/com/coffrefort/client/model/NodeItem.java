@@ -7,16 +7,24 @@ import java.util.List;
  * Représente un dossier (noeud) contenant éventuellement des fichiers et des sous-dossiers.
  */
 public class NodeItem {
+
+    //propriétés
+    public int id;
     private final String name;
     private final List<NodeItem> children = new ArrayList<>();
+
+    // pour compatibilité avec l'ancien code (MainView)
     private final List<FileEntry> files = new ArrayList<>();
 
-    private NodeItem(String name) {
+
+    //méthodes
+    public NodeItem(int id, String name) {
+        this.id = id;
         this.name = name;
     }
 
-    public static NodeItem folder(String name) {
-        return new NodeItem(name);
+    public static NodeItem folder(int id, String name) {
+        return new NodeItem(id, name);
     }
 
     public NodeItem addChild(NodeItem child) {
@@ -24,18 +32,30 @@ public class NodeItem {
         return this;
     }
 
-    public NodeItem withFiles(List<FileEntry> list) {
-        this.files.clear();
-        this.files.addAll(list);
-        return this;
-    }
+    public void setId(int id) { this.id = id; }
 
+    public int getId() { return id; }
     public String getName() { return name; }
     public List<NodeItem> getChildren() { return children; }
-    public List<FileEntry> getFiles() { return files; }
+
 
     @Override
     public String toString() {
         return name;
     }
+
+
+    // === compatibilité avec le code d'exemple (MainView) ===
+    public NodeItem withFiles(List<FileEntry> list) {
+        this.files.clear();
+        if (list != null) {
+            this.files.addAll(list);
+        }
+        return this;
+    }
+
+    public List<FileEntry> getFiles() {
+        return files;
+    }
+
 }

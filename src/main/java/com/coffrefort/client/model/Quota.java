@@ -1,9 +1,12 @@
 package com.coffrefort.client.model;
 
 public class Quota {
+
+    //propriétés
     private final long used;
     private final long max;
 
+    //méthodes
     public Quota(long used, long max) {
         this.used = used;
         this.max = max;
