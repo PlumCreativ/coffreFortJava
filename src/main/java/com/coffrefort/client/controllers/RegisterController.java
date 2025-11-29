@@ -1,5 +1,7 @@
 package com.coffrefort.client.controllers;
 
+import com.coffrefort.client.config.AppProperties;
+import com.coffrefort.client.util.JwtUtils;
 import javafx.application.Application;
 import javafx.concurrent.Task;
 import javafx.scene.control.Button;
@@ -15,6 +17,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+
+import com.coffrefort.client.util.JsonUtils;
 
 
 public class RegisterController extends Application {
@@ -32,8 +36,6 @@ public class RegisterController extends Application {
 
     @FXML private Button registerButton1;
     @FXML private Label statusLabel1;
-
-    private final HttpClient http = HttpClient.newHttpClient();
 
     private ApiClient apiClient;
 
@@ -55,27 +57,9 @@ public class RegisterController extends Application {
     }
 
 
-    // Méthode pour extraire un champ texte d'un petit JSON du genre {"error":"..."}
-    private String extractJsonField(String json, String fieldName) {
-        if (json == null) return null;
-
-        String pattern = "\"" + fieldName + "\"";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return null;
-
-        int colon = json.indexOf(":", idx + pattern.length()); //=> chercher le ":"
-        if (colon == -1) return null;
-
-        int firstQuote = json.indexOf("\"", colon); //=> chercher la guillemet ouvrant
-        if (firstQuote == -1) return null;
-
-        int secondQuote = json.indexOf("\"", firstQuote + 1); //=> chercher la guillemet fermant
-        if (secondQuote == -1) return null;
-
-        return json.substring(firstQuote + 1, secondQuote);
-    }
-
-    //Handler bouton pour s'inscrire
+    /**
+     * Gestion de l'Inscription et connexion: l'un après l'autre
+     */
     @FXML
     public void handleRegister(){
 
@@ -144,82 +128,8 @@ public class RegisterController extends Application {
             @Override
             protected String call() throws Exception {
 
-                // auth/register
-                String registerUrl = "http://localhost:8080/auth/register";
-
-                String registerJson = String.format(
-                        "{\"email\":\"%s\",\"password\":\"%s\",\"quota_total\":\"%d\",\"is_admin\":\"%b\"}",
-                        email, password, quotaTotal, isAdmin
-                );
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(registerUrl))
-                        .header("Accept", "application/json")
-                        .header ("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(registerJson))
-                        .build();
-
-                HttpResponse<String> registerResponse = http.send(request, HttpResponse.BodyHandlers.ofString());
-
-                int regStatus = registerResponse.statusCode();
-                String regBody = registerResponse.body();
-                System.out.println("Register Status: " + regStatus);
-                System.out.println("Register Response: " + regBody);
-
-                // Pour une inscription, l'API peut renvoyer 200 ou 201 (Created)
-                if(regStatus < 200 || regStatus >= 300) {
-
-                    //Erreur d'inscritption
-                    String apiError = extractJsonField(regBody, "error");
-                    if(apiError == null || apiError.isEmpty()) {
-                        apiError = "Inscription refusée par le serveur (code " + regStatus + ").";
-                    }
-                    updateMessage(apiError); //=> stockage dans le Task le message
-                    return null; // => on tente pas le login
-                }
-
-                // /auth/login
-                String loginUrl = "http://localhost:8080/auth/login";
-
-                String LoginJson = String.format(
-                        "{\"email\":\"%s\",\"password\":\"%s\"}",
-                        email, password
-                );
-
-                HttpRequest loginRequest = HttpRequest.newBuilder()
-                        .uri(URI.create(loginUrl))
-                        .header("Accept", "application/json")
-                        .header ("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(LoginJson))
-                        .build();
-
-                HttpResponse<String> loginResponse = http.send(loginRequest, HttpResponse.BodyHandlers.ofString());
-
-                int logStatus = loginResponse.statusCode();
-                String logBody = loginResponse.body();
-                System.out.println("Login Status: " + logStatus);
-                System.out.println("Login Response: " + logBody);
-
-                if(logStatus != 200){
-                    //Erreur d'inscritption
-                    String apiError = extractJsonField(logBody, "error");
-                    if(apiError == null || apiError.isEmpty()) {
-                        apiError = "Connexion automatique échouée (code " + logStatus + ").";
-                    }
-                    updateMessage(apiError); //=> stockage dans le Task le message
-                    return null;
-                }
-
-                //récupération de token
-                String token =  extractJsonField(logBody, "jwt");
-                if(token == null || token.isEmpty()) {
-                    updateMessage("Connexion réussi mais aucun token renvoyé par le serveur.");
-                    return null;
-                }
-
-                //stocker le token dans la session
-                //Session.setToken (token);
-
-                return token;
+                // Appel à ApiClient.register()
+                return apiClient.register(email, password, quotaTotal, isAdmin);
 
             }
         };
@@ -288,7 +198,10 @@ public class RegisterController extends Application {
 
     }
 
-    //Handler de lien de se connecter
+
+    /**
+     * Gestion du lien de "se connecter"
+     */
     @FXML
     public void handleGoToLogin(){
         openLogin();
@@ -329,7 +242,6 @@ public class RegisterController extends Application {
     public void showSuccess(String message){
         successLabel1.setText(message);
     }
-
 
 
     public static void main(String[] args) {

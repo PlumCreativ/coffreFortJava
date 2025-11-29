@@ -1,65 +1,746 @@
 package com.coffrefort.client;
 
+import com.coffrefort.client.config.AppProperties;
 import com.coffrefort.client.model.FileEntry;
 import com.coffrefort.client.model.NodeItem;
 import com.coffrefort.client.model.Quota;
+import com.coffrefort.client.util.JsonUtils;
+import com.coffrefort.client.util.JwtUtils;
 
+import java.io.File;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Client d'API minimal (simulation) pour permettre l'exécution sans backend.
- * Remplacez progressivement les méthodes par de vrais appels HTTP vers votre API REST.
- */
-public class ApiClient {
-    private String baseUrl = "http://localhost:8080"; // à adapter
-    private String authToken; // JWT ou autre
 
-    public boolean login(String email, String password) {
-        // Simulation: accepte tout couple non-vide
-        if (email != null && !email.isBlank() && password != null && !password.isBlank()) {
-            this.authToken = "demo-" + UUID.randomUUID();
+public class ApiClient {
+
+    //propriétés
+    private static ApiClient INSTANCE;
+    private final HttpClient httpClient;
+    private final String baseUrl;
+    private String authToken;
+    private final HttpClient http = HttpClient.newHttpClient();
+
+
+    //méthodes
+    // Constructeur par défaut avec URL localhost
+    public ApiClient() {
+        this("http://localhost:8080");
+    }
+
+    // Constructeur avec URL personnalisée
+    public ApiClient(String baseUrl) {
+        this.baseUrl = baseUrl;
+        this.httpClient = HttpClient.newHttpClient();
+        this.authToken = null;
+    }
+
+    /**
+     * Authentification utilisateur avec email et mot de passe
+     * @param email Email de l'utilisateur
+     * @param password Mot de passe
+     * @return Le token JWT si succès, null sinon
+     * @throws Exception En cas d'erreur réseau ou serveur
+     */
+    public String login(String email, String password) throws Exception {
+        String url = baseUrl + "/auth/login";
+
+        // Construction du body JSON
+        String jsonBody = String.format(
+                "{\"email\":\"%s\",\"password\":\"%s\"}",
+                email, password
+        );
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        // Envoi de la requête
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int statusCode = response.statusCode();
+        String responseBody = response.body();
+
+        System.out.println("Login - Status: " + statusCode);
+        System.out.println("Login - Response: " + responseBody);
+
+        // Gestion des erreurs HTTP
+        if (statusCode == 401) {
+            throw new AuthenticationException("Identifiants invalides.");
+        } else if (statusCode == 400) {
+            String errorMsg = JsonUtils.extractJsonField(responseBody, "error");
+            throw new AuthenticationException(
+                    errorMsg != null ? errorMsg : "Requête invalide."
+            );
+        } else if (statusCode != 200) {
+            String errorMsg = JsonUtils.extractJsonField(responseBody, "error");
+            throw new Exception(
+                    errorMsg != null ? errorMsg : "Erreur serveur (code " + statusCode + ")."
+            );
+        }
+
+        // Extraction du token JWT
+        String token = JsonUtils.extractJsonField(responseBody, "jwt");
+        if (token == null || token.isEmpty()) {
+            throw new Exception("Token JWT non reçu du serveur.");
+        }
+
+        setAuthToken(token);
+
+        return token;
+    }
+
+    /**
+     * Inscription d'un nouvel utilisateur puis connexion automatique
+     * @param email Email de l'utilisateur
+     * @param password Mot de passe
+     * @param quotaTotal
+     * @param isAdmin
+     * @return Le token JWT si succès
+     * @throws Exception En cas d'erreur
+     */
+    public String register(String email, String password, int quotaTotal, Boolean isAdmin) throws Exception{
+        // auth/register
+        String registerUrl = baseUrl + "/auth/register";
+
+        String registerJson = String.format(
+                "{\"email\":\"%s\",\"password\":\"%s\",\"quota_total\":\"%d\",\"is_admin\":\"%b\"}",
+                email, password, quotaTotal, isAdmin
+        );
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(registerUrl))
+                .header("Accept", "application/json")
+                .header ("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(registerJson))
+                .build();
+
+        HttpResponse<String> registerResponse = http.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int regStatus = registerResponse.statusCode();
+        String regBody = registerResponse.body();
+        System.out.println("Register Status: " + regStatus);
+        System.out.println("Register Response: " + regBody);
+
+        // Pour une inscription, l'API peut renvoyer 200 ou 201 (Created)
+        if(regStatus < 200 || regStatus >= 300) {
+
+            //Erreur d'inscritption
+            String apiError = JsonUtils.extractJsonField(regBody, "error");
+
+            if(apiError == null || apiError.isEmpty()) {
+                apiError = "Inscription refusée par le serveur (code " + regStatus + ").";
+            }
+            throw new RegistrationException(apiError); //=> il ne faut pas return après!!
+        }
+
+        // /auth/login
+        String loginUrl = baseUrl + "/auth/login";
+
+        String LoginJson = String.format(
+                "{\"email\":\"%s\",\"password\":\"%s\"}",
+                email, password
+        );
+
+        HttpRequest loginRequest = HttpRequest.newBuilder()
+                .uri(URI.create(loginUrl))
+                .header("Accept", "application/json")
+                .header ("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(LoginJson))
+                .build();
+
+        HttpResponse<String> loginResponse = http.send(loginRequest, HttpResponse.BodyHandlers.ofString());
+
+        int logStatus = loginResponse.statusCode();
+        String logBody = loginResponse.body();
+        System.out.println("Login Status: " + logStatus);
+        System.out.println("Login Response: " + logBody);
+
+        if(logStatus != 200){
+
+            //Erreur de connexion
+            String apiError = JsonUtils.extractJsonField(logBody, "error");
+            if(apiError == null || apiError.isEmpty()) {
+                apiError = "Connexion automatique échouée (code " + logStatus + ").";
+            }
+            throw new RegistrationException(apiError);
+        }
+
+        //récupération de token
+        String token =  JsonUtils.extractJsonField(logBody, "jwt");
+        if(token == null || token.isEmpty()) {
+            throw new RegistrationException("Connexion réussi mais aucun token renvoyé par le serveur.");
+        }
+
+        setAuthToken(token);
+
+        return token;
+    }
+
+    public static ApiClient getInstance() {
+        if(INSTANCE == null) {
+            INSTANCE = new ApiClient();
+        }
+        return INSTANCE;
+    }
+
+    /**
+     * Définir manuellement le token (pour restauration depuis persistance)
+     */
+    public void setAuthToken(String token) {
+        this.authToken = token;
+        if (token != null) {
+            AppProperties.set("auth.token", token);
+            String email = JwtUtils.extractEmail(token);
+            if (email != null) {
+                AppProperties.set("auth.email", email);
+            }
+
+            String userId = JwtUtils.extractUserID(token);
+            if (userId != null) {
+                AppProperties.set("auth.userId", userId);
+            }
+            System.out.println("setAuthToken() userId = " + userId);
+        }
+    }
+
+    /**
+     * Créer un dossier
+     * @param name
+     * @param parentFolder
+     * @return
+     * @throws Exception
+     */
+    public boolean createFolder(String name, NodeItem parentFolder) throws Exception{
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (authToken null).");
+        }
+
+        String userIdStr = AppProperties.get("auth.userId");
+        System.out.println("createFolder() userIdStr = " + userIdStr);
+
+        if(userIdStr == null || userIdStr.isEmpty()) {
+            throw new IllegalStateException("auth.userId non défini dans AppProperties.");
+        }
+
+        int userId = Integer.parseInt(userIdStr);
+        int parentId = 0;
+        if(parentFolder != null) {
+            parentId = parentFolder.getId();
+        }
+
+        String jsonBody = "{"
+                + "\"user_id\": " + userId + ","
+                + "\"parent_id\": " + parentId + ","
+                + "\"name\": \"" + escapeJson(name) + "\""
+                + "}";
+
+        System.out.println("POST /folders body = " + jsonBody);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/folders"))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        if (status == 201) {
+            System.out.println("Dossier créé: " + response.body());
             return true;
         }
+
+        System.err.println("Erreur création dossier. Status=" + status + " body=" + response.body());
         return false;
     }
 
-    public boolean isAuthenticated() {
-        return authToken != null;
+
+    private String escapeJson(String value) {
+        if (value == null) return "";
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+    }
+
+
+    /**
+     * uploader un ou des fichier(s)
+     * @param file
+     * @return
+     * @throws Exception
+     */
+    public boolean uploadFile(File file) throws Exception {
+        if (file == null || !file.exists()) {
+            throw new Exception("Fichier invalide");
+        }
+
+        // Vérifier token
+        String token = this.authToken;
+        if (token == null || token.isEmpty()) {
+            token = AppProperties.get("auth.token"); // fallback
+        }
+        if (token == null || token.isEmpty()) {
+            throw new AuthenticationException("Utilisateur non connecté (token manquant).");
+        }
+
+        String url = baseUrl + "/files";
+        String boundary = "----CryptoVaultBoundary" + UUID.randomUUID();
+
+        // Construire le body multipart
+        byte[] body = buildMultipartBody(file, boundary);
+
+        // Faire la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                .build();
+
+        HttpResponse<String> response =
+                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String responseBody = response.body();
+
+        System.out.println("UPLOAD Status: " + status);
+        System.out.println("UPLOAD Response: " + responseBody);
+
+        if (status == 401 || status == 403) {
+            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        }
+
+        if (status < 200 || status >= 300) {
+            String apiError = JsonUtils.extractJsonField(responseBody, "error");
+            if (apiError == null || apiError.isEmpty()) {
+                apiError = "Upload refusé (code " + status + ")";
+            }
+            throw new Exception(apiError);
+        }
+
+        return true;
     }
 
     /**
-     * Retourne une arborescence factice de dossiers/fichiers.
+     *
+     * @param file
+     * @param boundary
+     * @return
+     * @throws Exception
      */
-    public List<NodeItem> listRoot() {
-        List<NodeItem> root = new ArrayList<>();
-        NodeItem docs = NodeItem.folder("Documents")
-                .withFiles(List.of(
-                        FileEntry.of("CV.pdf", 128_000, Instant.now().minusSeconds(86_400)),
-                        FileEntry.of("Lettre_motivation.docx", 64_000, Instant.now().minusSeconds(123_000))
-                ));
-        NodeItem photos = NodeItem.folder("Photos")
-                .addChild(NodeItem.folder("Vacances 2024").withFiles(List.of(
-                        FileEntry.of("plage.jpg", 2_048_000, Instant.now().minusSeconds(55_000)),
-                        FileEntry.of("coucher_soleil.jpg", 1_648_000, Instant.now().minusSeconds(45_000))
-                )))
-                .addChild(NodeItem.folder("Famille"));
+    private byte[] buildMultipartBody(File file, String boundary) throws Exception {
+        String CRLF = "\r\n";
 
-        NodeItem racineFichiers = NodeItem.folder("Racine");
-        racineFichiers.getFiles().add(FileEntry.of("todo.txt", 1_024, Instant.now().minusSeconds(3_600)));
+        String mimeType = Files.probeContentType(file.toPath());
+        if (mimeType == null) {
+            mimeType = "application/octet-stream"; // fallback
+        }
 
-        root.add(docs);
-        root.add(photos);
-        root.add(racineFichiers);
+        //Partie folder_id
+        String folderPart =
+                "--" + boundary + CRLF +
+                        "Content-Disposition: form-data; name=\"folder_id\"" + CRLF + CRLF +
+                        "2" + CRLF;
+
+        //partie file
+        String filePartHeader =
+                "--" + boundary + CRLF +
+                "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + CRLF +
+                "Content-Type: " + mimeType + CRLF + CRLF;
+
+        String ending =
+                CRLF + "--" + boundary + "--" + CRLF;
+
+        byte[] fileBytes = Files.readAllBytes(file.toPath());
+
+        byte[] folderBytes = folderPart.getBytes(StandardCharsets.UTF_8);
+        byte[] headerBytes = filePartHeader.getBytes(StandardCharsets.UTF_8);
+        byte[] endingBytes = ending.getBytes(StandardCharsets.UTF_8);
+
+        byte[] fullBody = new byte[folderBytes.length + headerBytes.length + fileBytes.length + endingBytes.length];
+
+        int pos = 0;
+        System.arraycopy(folderBytes, 0, fullBody, pos, folderBytes.length);
+        pos += folderBytes.length;
+
+        System.arraycopy(headerBytes, 0, fullBody, 0, headerBytes.length);
+        pos += headerBytes.length;
+
+        System.arraycopy(fileBytes, 0, fullBody, headerBytes.length, fileBytes.length);
+        pos += fileBytes.length;
+
+        System.arraycopy(endingBytes, 0, fullBody, headerBytes.length + fileBytes.length, endingBytes.length);
+
+        return fullBody;
+    }
+
+
+    /**
+     * Récupération de tous les folders d'un utilisateur
+     * @return
+     * @throws Exception
+     */
+    public NodeItem listRoot() throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/folders"))
+                //.header("Content-Type", "application/json") //=> lehet hogy le kell venni
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+
+        if (status != 200) {
+            System.err.println("Erreur listRoot. Status=" + status + " body=" + response.body());
+            throw new IllegalStateException("Erreur HTTP " + status + " lors du chargement de l'arborescence");
+        }
+
+        String body = response.body();
+        System.out.println("GET /folders => " + body);
+
+        // Construire l'arbre de NodeItem
+        return buildFolderTreeFromJson(body);
+    }
+
+    /**
+     * Récupération des fichier d'un folder précis lié à une client
+     * @param folderId
+     * @return
+     * @throws Exception
+     */
+    public List<FileEntry> listFiles(int folderId) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/files?folder=" + folderId))
+                //.header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+
+        if (status != 200) {
+            System.err.println("Erreur listFiles. Status=" + status + " body=" + response.body());
+            throw new IllegalStateException("Erreur HTTP " + status + " lors du chargement des fichiers");
+        }
+
+        String body = response.body();
+        System.out.println("GET /files?folder=" + folderId + " => " + body);
+
+        // Construire l'arbre de NodeItem
+        return parseFiles(body);
+    }
+
+
+
+
+    /**
+     * Déconnexion - Supprime le token
+     */
+    public void logout() {
+        this.authToken = null;
+        AppProperties.remove("auth.token");
+        AppProperties.remove("auth.email");
+        System.out.println("Déconnexion effectuée.");
+    }
+
+    /**
+     * Vérifie si l'utilisateur est authentifié
+     */
+    public boolean isAuthenticated() {
+        return this.authToken != null && !this.authToken.isEmpty();
+    }
+
+    /**
+     * Retourne le token d'authentification actuel
+     */
+    public String getAuthToken() {
+        return this.authToken;
+    }
+
+    /**
+     * récupération quota depuis d'une requête API
+     */
+    public Quota getQuota() throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/me/quota"))
+                //.header("Content-Type", "application/json") //=> lehet hogy le kell venni
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        System.out.println("GET /me/quota status=" + status);
+        System.out.println("GET /me/quota body=" + body);
+
+        if(status != 200){
+            String apiError = JsonUtils.extractJsonField(body, "error");
+
+            if(apiError == null || apiError.isEmpty()){
+                apiError = "Erreur quota (code " + status + ")";
+            }
+            throw  new Exception(apiError);
+        }
+
+        String usedStr = JsonUtils.extractJsonNumberField(body, "used_bytes");
+        String totalStr = JsonUtils.extractJsonNumberField(body, "total_bytes");
+
+
+        long used = (usedStr != null && !usedStr.isEmpty()) ? Long.parseLong(usedStr) : 0;
+        long total = (totalStr != null && !totalStr.isEmpty()) ? Long.parseLong(totalStr) : 0;
+
+        return new Quota(used, total);
+    }
+
+    /**
+     * Exception personnalisée pour les erreurs d'authentification
+     */
+    public static class AuthenticationException extends Exception {
+        public AuthenticationException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Exception pour les erreurs d'inscription
+     */
+    public static class RegistrationException extends Exception {
+        public RegistrationException(String message) {
+            super(message);
+        }
+    }
+
+    public Boolean deleteFile(int id) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/files/" + id))
+                //.header("Content-Type", "application/json") //=> lehet hogy le kell venni
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .DELETE()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+
+        //204 => requête réussi, pas besoin de quitter la page
+        if(status == 200 || status == 204) {
+            return true;
+        }
+
+        if(status == 401 || status == 403) {
+            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        }
+        System.out.println("Erreur pendant la suppression du fichier. Status=" + status + " body=" + response.body());
+        return false;
+
+    }
+
+
+    //méthodes private
+
+    //DTO =Data Transfer Object => pour structurer les données pour les rendre faciles à échanger
+    private static class FolderDto{
+        int id;
+        String name;
+        Integer parentId;
+    }
+
+
+    /**
+     * construction d'un NodeItem "racine" virtuel avec tous les dossiers enfants
+     * @param json
+     * @return
+     */
+    private NodeItem buildFolderTreeFromJson(String json) {
+        List<FolderDto> folders = parseFolders(json);
+
+        // Racine virtuelle (id 0) non affichée parce que TreeView.showRoot = false
+        NodeItem root = NodeItem.folder(0, "Racine");
+        java.util.Map<Integer, NodeItem> map = new java.util.HashMap<>();
+
+        // Créer tous les noeuds
+        for (FolderDto f : folders) {
+            NodeItem node = NodeItem.folder(f.id, f.name);
+            map.put(f.id, node);
+        }
+
+        // Assembler l'arborescence selon parent_id
+        for (FolderDto f : folders) {
+            NodeItem node = map.get(f.id);
+
+            if (f.parentId == null || f.parentId == 0) {
+
+                // dossier racine
+                root.addChild(node);
+            } else {
+                NodeItem parent = map.get(f.parentId);
+                if (parent != null) {
+                    parent.addChild(node);
+                } else {
+
+                    // parent non trouvé → par sécurité à accrocher à la racine
+                    root.addChild(node);
+                }
+            }
+        }
         return root;
     }
 
+
     /**
-     * Quota simulé: 2 Go max, 350 Mo utilisés.
+     * Parse un JSON de type:
+     *   [ { "id":1, "name":"Docs", "parent_id":null }, ... ]
+     * ou un seul objet:
+     *   { "id":1, "name":"Docs", "parent_id":null, ... }
      */
-    public Quota getQuota() {
-        return new Quota(350L * 1024 * 1024, 2L * 1024 * 1024 * 1024);
+    private List<FolderDto> parseFolders(String json) {
+        List<FolderDto> result = new ArrayList<>();
+        if (json == null || json.isBlank()) return result;
+
+        String trimmed = json.trim();
+
+        String[] parts;
+
+        if (trimmed.startsWith("[")) {    // => tableau: [ {...}, {...} ]
+
+            // enlever les crochets
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+            if (trimmed.isBlank()) return result;
+
+            // découper à la grosse: "},{"
+            parts = trimmed.split("\\},\\s*\\{"); //=> les objets séparés par } , {
+        } else {
+
+            //un seul objet: { ... }
+            parts = new String[]{ trimmed };
+        }
+
+        for (String part : parts) {
+            String objet = part.trim();
+            if (!objet.startsWith("{")) objet = "{" + objet;
+            if (!objet.endsWith("}")) objet = objet + "}";
+
+            FolderDto dto = new FolderDto();
+
+            // "id": 1
+            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
+
+            if (idStr != null) {
+                dto.id = Integer.parseInt(idStr);
+            }
+
+            // "name": "Documents"
+            dto.name = JsonUtils.extractJsonField(objet, "name");
+
+            // "parent_id": null ou un nombre
+            String parentStr = JsonUtils.extractJsonNumberField(objet, "parent_id");
+            if (parentStr != null) {
+                dto.parentId = Integer.parseInt(parentStr);
+            } else {
+                dto.parentId = null; // parent_id null => dossier racine
+            }
+            result.add(dto);
+        }
+        return result;
     }
+
+    /**
+     *
+     * @param json
+     * @return
+     */
+    private List<FileEntry> parseFiles(String json) {
+        List<FileEntry> result = new ArrayList<>();
+        if (json == null || json.isBlank()) return result;
+
+        String trimmed = json.trim();
+        String[] parts;
+
+        if (trimmed.startsWith("[")) {
+
+            // Cas tableau: [ {...}, {...} ]
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+            if (trimmed.isBlank()) return result;
+
+            // découpe grossière sur "},{"
+            parts = trimmed.split("\\},\\s*\\{");
+        } else {
+
+            //un seul objet: { ... }
+            parts = new String[]{ trimmed };
+        }
+
+        // découper à la grosse: "},{"
+        String[] filesParts = trimmed.split("\\},\\s*\\{");
+
+        for (String part : filesParts) {
+            String objet = part.trim();
+            if (!objet.startsWith("{")) objet = "{" + objet;
+            if (!objet.endsWith("}")) objet = objet + "}";
+
+
+            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
+            String name = JsonUtils.extractJsonField(objet, "original_name");
+            String sizeStr = JsonUtils.extractJsonNumberField(objet, "size");
+            String date = JsonUtils.extractJsonField(objet, "created_at");
+
+            int id = (idStr != null) ? Integer.parseInt(idStr) : 0;
+            long size = (sizeStr != null )? Long.parseLong(sizeStr) : 0L;
+
+            if (name == null) {
+                // sécurité : si jamais ton API change de champ un jour
+                name = JsonUtils.extractJsonField(objet, "name");
+            }
+
+            result.add(FileEntry.of(id, name, size, date));
+
+        }
+        return result;
+    }
+
+
+
+
 }

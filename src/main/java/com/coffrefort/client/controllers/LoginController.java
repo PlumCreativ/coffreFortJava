@@ -4,6 +4,9 @@ import com.coffrefort.client.ApiClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
@@ -14,6 +17,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+
+import com.coffrefort.client.util.JsonUtils;
+import com.coffrefort.client.util.JwtUtils;
+import com.coffrefort.client.config.AppProperties;
+import javafx.stage.Stage;
 
 public class LoginController {
 
@@ -49,120 +57,80 @@ public class LoginController {
         this.onGoToRegister = onGoToRegister;
     }
 
-
+    /**
+     * Gestion de Connexion
+     */
     @FXML
     public void handleLogin() {
-
-        // Nettoyer le message d'erreur
-        if (errorLabel != null) {
-            errorLabel.setText("");
-        }
-        if (statusLabel != null){
-            statusLabel.setText("");
-        }
-
-        String email = emailField != null && emailField.getText() != null ? emailField.getText().trim() : "";
-        String password = passwordField != null && passwordField.getText() != null ? passwordField.getText().trim() : "";
-
-        // Validation simple
-        if (email.isEmpty() || password.isEmpty()) {
-            if (errorLabel != null) {
-                errorLabel.setText("Veuillez saisir l'email et le mot de passe.");
-            }
+        if (apiClient == null) {
+            System.err.println("ApiClient n'a pas été injecté !");
             return;
         }
 
-        // Désactive le bouton pendant la connexion
-        if(connexionButton != null) {
-            connexionButton.setDisable(true);
+        errorLabel.setText("");
+        statusLabel.setText("");
+
+        String email = emailField.getText().trim();
+        String password = passwordField.getText().trim();
+
+        if (email.isEmpty() || password.isEmpty()) {
+            errorLabel.setText("Veuillez saisir l'email et le mot de passe.");
+            return;
         }
 
-        if(statusLabel != null) { //=>????????????????????
-            statusLabel.setText("Connexion...");
-        }
+        connexionButton.setDisable(true);
+        statusLabel.setText("Connexion...");
 
-        // utilisation d'une Task pour exécuter l'appel HTTP hors du thread JavaFX
-        Task<Boolean> task = new Task<>() {
+        Task<String> task = new Task<>() {
             @Override
-            protected Boolean call() throws Exception {
-                String url = "http://localhost:8080/auth/login";
-
-                String jsonBody = String.format(
-                        "{\"email\":\"%s\",\"password\":\"%s\"}",
-                        email, password
-                );
-
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(url))
-                        .header("Accept", "application/json")
-                        .header ("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                        .build();
-
-                HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-
-                int status = response.statusCode();
-                String responseBody = response.body();
-                System.out.println("Status: " + status);
-                System.out.println("Response: " + responseBody);
-
-                if ( status != 200) {
-                    return false;
+            protected String call() {
+                try {
+                    return apiClient.login(email, password);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
                 }
-                return true;
             }
-
         };
 
-        //après la requête terminée => succès ou erreur HTTP
         task.setOnSucceeded(event -> {
-            boolean ok = task.getValue();
+            connexionButton.setDisable(false);
+            String token  = task.getValue();
+            if (token  != null) {
+                statusLabel.setText("Connexion réussie.");
+                try {
+                    FXMLLoader mainLoader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/main.fxml"));
+                    Parent mainRoot = mainLoader.load();
 
-            if(connexionButton != null) {
-                connexionButton.setDisable(false);
-            }
+                    MainController mainController = mainLoader.getController();
+                    mainController.setApiClient(apiClient);
 
-            if(ok){
-                if(statusLabel != null) {
-                    statusLabel.setText("Connexion réussie.");
+                    Stage stage = (Stage) emailField.getScene().getWindow();
+                    stage.setScene(new Scene(mainRoot));
+                    stage.setTitle("CryptoVault - Accueil");
+                    stage.show();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-
-                if(onSuccess != null) {
-                    onSuccess.run(); //=> changer de scène/ fenêtre
-                }
-            }else{
-                if(statusLabel != null) {
-                    statusLabel.setText("");
-                }
-                if(errorLabel != null) {
-                    errorLabel.setText("Identifiants invalides.");
-                }
+            } else {
+                errorLabel.setText("Email ou mot de passe incorrect.");
+                statusLabel.setText("");
             }
         });
 
         task.setOnFailed(event -> {
-            if(connexionButton != null) {
-                connexionButton.setDisable(false);
-            }
-            if(statusLabel != null) {
-                statusLabel.setText("");
-            }
-            if(errorLabel != null) {
-                errorLabel.setText("Erreur de connexion au serveur.");
-            }
-
-            Throwable ex = task.getException();
-            if (ex != null) {
-                ex.printStackTrace();
-            }
+            connexionButton.setDisable(false);
+            statusLabel.setText("");
+            errorLabel.setText("Erreur de connexion au serveur.");
+            task.getException().printStackTrace();
         });
 
-        //lancer le Task dans un thread séparé
         new Thread(task).start();
-
     }
 
-    // Handler du lien "S'inscrire"
+
+    /**
+     * Gestion du lien "S'inscrire"
+     */
     @FXML
     public void handleGoToRegister() {
         if (onGoToRegister != null) {
