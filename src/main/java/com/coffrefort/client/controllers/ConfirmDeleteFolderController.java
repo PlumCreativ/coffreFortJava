@@ -5,10 +5,10 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.stage.Stage;
 
-public class ConfirmDeleteController {
+public class ConfirmDeleteFolderController {
 
     //propriétés
-    @FXML private Label fileNameLabel;
+    @FXML private Label folderNameLabel;
 
     @FXML private Button cancelButton;
     @FXML private Button confirmButton;
@@ -22,7 +22,7 @@ public class ConfirmDeleteController {
     //méthodes
     @FXML
     private void initialize() {
-        // on peut ajouter du log si besoin
+        // possibilité d'ajouter logs
     }
 
     /** Injecté par la vue (ou MainController) pour fermer la fenêtre */
@@ -31,9 +31,9 @@ public class ConfirmDeleteController {
     }
 
     /** Permet d'afficher le nom du fichier sélectionné */
-    public void setFileName(String fileName) {
-        if (fileNameLabel != null) {
-            fileNameLabel.setText(fileName != null ? fileName : "");
+    public void setFolderName(String folderName) {
+        if (folderNameLabel != null) {
+            folderNameLabel.setText(folderName != null ? folderName : "");
         }
     }
 

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.Optional;
 import com.coffrefort.client.config.AppProperties;
+import org.w3c.dom.Node;
 
 public class MainController {
 
@@ -105,6 +106,8 @@ public class MainController {
     private void setupTable() {
         // Configuration des colonnes
         nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+        //il y a un problème avec "sizeFormatted"
         sizeCol.setCellValueFactory(new PropertyValueFactory<>("sizeFormatted"));
         dateCol.setCellValueFactory(new PropertyValueFactory<>("updatedAtFormatted"));
 
@@ -143,28 +146,57 @@ public class MainController {
      */
     private void setupTreeView() {
 
-        // Listener sur la sélection => à supprimer???
-//        treeView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-//            if (newVal != null && newVal.getValue() != null) {
-//                currentFolder = newVal.getValue();
-//                loadFiles(currentFolder);
-//            }
-//        });
-
         // Style de l'arborescence
-        treeView.setCellFactory(tv -> new TreeCell<NodeItem>() {
+        treeView.setCellFactory(tv -> {
+            TreeCell<NodeItem> cell = new TreeCell<>() {
 
-            @Override
-            protected void updateItem(NodeItem item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                    setGraphic(null);
-                } else {
-                    setText("📁 " + item.getName());
+                @Override
+                protected void updateItem(NodeItem item, boolean empty) {
+                    super.updateItem(item, empty);
+
+                    if (empty || item == null) {
+                        setText(null);
+                        setGraphic(null);
+                        setContextMenu(null);
+                    } else {
+                        setText("📁 " + item.getName());
+
+                        // ne pas proposer suppression sur la racine virtuelle => id=0
+                        if (item.getId() == 0) {
+                            setContextMenu(null);
+                        } else {
+
+                            // afficher le menu au clique droite => setContextMenu()
+                            // rendre le clique droit active
+                            setContextMenu(createFolderContextMenu(this));
+                        }
+                    }
                 }
+            };
+            return cell;
+        });
+    }
+
+    /**
+     * création du menu contextuel pour un dossier donné
+     * @param cell
+     * @return
+     */
+    private ContextMenu createFolderContextMenu(TreeCell<NodeItem>  cell){
+        ContextMenu menu = new ContextMenu();
+
+        MenuItem deleteItem = new MenuItem("Supprimer ce dossier...");
+        deleteItem.setOnAction(event -> {
+            NodeItem folder = cell.getItem();
+            TreeItem<NodeItem> treeItem =  cell.getTreeItem();
+
+            if (folder != null && treeItem != null) {
+                handleDeleteFolder(folder, treeItem);
             }
         });
+
+        menu.getItems().addAll(deleteItem);
+        return menu;
     }
 
 
@@ -377,7 +409,7 @@ public class MainController {
     }
 
     /**
-     * supprimer des fichiers ou folders
+     * supprimer des fichiers
      */
     @FXML
     private void handleDelete() {
@@ -545,6 +577,98 @@ public class MainController {
         showInfo("Mes partages", "Fonctionnalité à venir");
     }
 
+    /**
+     *
+     * @param folder
+     * @param treeItem
+     */
+    private void handleDeleteFolder(NodeItem folder, TreeItem<NodeItem> treeItem){
+
+//        Alert confirm =  new Alert(Alert.AlertType.CONFIRMATION);
+//        confirm.setTitle("Supprimer le dossier");
+//        confirm.setHeaderText("Supprimer le dossier \"" + folder.getName() + "\" ?");
+//        confirm.setContentText("Tous les fichiers et sous-dossiers de ce dossier seront supprimer.");
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/confirmDeleteFolder.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            ConfirmDeleteFolderController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Confirmer la suppresion du dossier");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(deleteButton.getScene().getWindow());
+            dialogStage.setScene(new Scene(root));
+
+            // Injection du stage et du nom de fichier
+            controller.setDialogStage(dialogStage);
+            controller.setFolderName(folder.getName());
+
+            //callbacks
+            controller.setOnConfirm(() -> deleteFolderOnServer(folder, treeItem));
+            controller.setOnCancel(() -> statusLabel.setText("Suppression du dossier annulé"));
+            dialogStage.showAndWait();
+
+        } catch (Exception e){
+            System.err.println("Erreur lors du chargement de confirmDeleteFolder.fxml");
+            e.printStackTrace();
+            showError("Erreur", "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
+        }
+
+//        Optional<ButtonType> result = confirm.showAndWait();
+//        if(result.isPresent() && result.get() == ButtonType.OK){
+//            deleteFolderOnServer(folder, treeItem);
+//        }else{
+//            statusLabel.setText("Suppression du dossier annulée");
+//        }
+    }
+
+    /**
+     * supprimer le dossier sur le serveur (via API) + mise à jour l'affichage
+     * @param folder
+     * @param treeItem
+     */
+    private void deleteFolderOnServer(NodeItem folder, TreeItem<NodeItem> treeItem){
+        statusLabel.setText("Suppression du dossier en cours ...");
+
+        new Thread(() -> {
+            try{
+                boolean success = apiClient.deleteFolder(folder.getId());
+
+                Platform.runLater(() -> {
+                    if(success){
+
+                        //Si on est dans ce dossier => vider la table
+                        if(currentFolder != null && currentFolder.getId() ==  folder.getId()){
+                            fileList.clear();
+                            updateFileCount();
+                            currentFolder = null;
+                        }
+
+                        //recharger arborescence
+                        loadData();
+                        updateQuota();
+
+                        statusLabel.setText("Dossier supprimé: " + folder.getName());
+                    }else{
+                        showError("Erreur", "Impossible de supprimer le dossier.");
+                        statusLabel.setText("Erreur de suppression du dossier.");
+                    }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    showError("Erreur", "Erreur lors de la suppression du dossier: " + e.getMessage());
+                    statusLabel.setText("Erreur de suppression du dossier");
+                });
+            }
+        }).start();
+    }
 
     /**
      * Gestion de déconnexion
