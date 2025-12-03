@@ -577,6 +577,40 @@ public class ApiClient {
 
     }
 
+    public Boolean deleteFolder(int id) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/folders/" + id))
+                //.header("Content-Type", "application/json") //=> lehet hogy le kell venni
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .DELETE()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        System.out.println("DELETE /folders/" + id + " => " + status + " body: " + body);
+
+        //204 => requête réussi, pas besoin de quitter la page
+        if(status == 200 || status == 204) {
+            return true;
+        }
+
+        if(status == 401 || status == 403) {
+            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        }
+        System.out.println("Erreur pendant la suppression du dossier. Status=" + status + " body=" + response.body());
+        return false;
+
+    }
+
+
 
     //méthodes private
 
