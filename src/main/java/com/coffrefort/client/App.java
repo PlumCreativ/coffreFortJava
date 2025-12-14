@@ -8,6 +8,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import java.net.URL;
 
 /**
  * Mini client lourd JavaFX d'exemple pour le projet « Coffre‑fort numérique ».
@@ -109,7 +110,8 @@ public class App extends Application {
 
     /**
      * TABLEAU DE BORD
-     * @param loginStage
+     *  * @param loginStage
+     * Solution avec data URI pour inclure le CSS directement
      */
     private void openMainAndClose(Stage loginStage) {
         try {
@@ -126,15 +128,21 @@ public class App extends Application {
                     throw new RuntimeException(e);
                 }
             });
+
             Parent root = loader.load();
             Stage mainStage = new Stage();
             mainStage.setTitle("Coffre‑fort — Espace personnel");
-            mainStage.setScene(new Scene(root, 1024, 640));
+
+            Scene scene = new Scene(root, 1024, 640);
+
+            mainStage.setScene(scene);
             mainStage.show();
 
             // Fermer la fenêtre de login
             loginStage.close();
+
         } catch (Exception e) {
+            e.printStackTrace();
             throw new RuntimeException("Impossible de charger main.fxml", e);
         }
     }

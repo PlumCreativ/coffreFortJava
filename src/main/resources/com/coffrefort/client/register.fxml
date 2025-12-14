@@ -17,7 +17,11 @@
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.text.Text?>
 
-<GridPane hgap="5"
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<GridPane fx:id = "rootPane"
+          hgap="5"
           vgap="20.0"
           prefHeight="600.0"
           prefWidth="350.0"
@@ -111,26 +115,50 @@
             </GridPane.margin>
         </Label>
 
-        <!-- Champ mot de passe -->
-        <PasswordField fx:id="passwordField1"
+        <!-- Champ mot de passe (masqué / visible via StackPane) -->
+        <StackPane GridPane.rowIndex="5">
+            <!-- Mot de passe masqué -->
+            <PasswordField fx:id="passwordField1"
+                           prefHeight="30.0"
+                           prefWidth="70.0"
+                           promptText="Mot de passe">
+                <effect>
+                    <DropShadow height="15.0"
+                                offsetX="2.0"
+                                offsetY="2.0"
+                                radius="7.0"
+                                width="15.0">
+                        <color>
+                            <Color red="0.5960784554481506"
+                                   green="0.04313725605607033"
+                                   blue="0.04313725605607033" />
+                        </color>
+                    </DropShadow>
+                </effect>
+            </PasswordField>
+
+            <!-- Mot de passe en clair -->
+            <TextField fx:id="passwordVisibleField1"
                        prefHeight="30.0"
                        prefWidth="70.0"
-                       promptText="Mot de passe (min. 8 caractères)"
-                       GridPane.rowIndex="6">
-            <effect>
-                <DropShadow height="15.0"
-                            offsetX="2.0"
-                            offsetY="2.0"
-                            radius="7.0"
-                            width="15.0">
-                    <color>
-                        <Color red="0.5960784554481506"
-                               green="0.04313725605607033"
-                               blue="0.04313725605607033" />
-                    </color>
-                </DropShadow>
-            </effect>
-        </PasswordField>
+                       promptText="Mot de passe"
+                       visible="false"
+                       managed="false">
+                <effect>
+                    <DropShadow height="15.0"
+                                offsetX="2.0"
+                                offsetY="2.0"
+                                radius="7.0"
+                                width="15.0">
+                        <color>
+                            <Color red="0.5960784554481506"
+                                   green="0.04313725605607033"
+                                   blue="0.04313725605607033" />
+                        </color>
+                    </DropShadow>
+                </effect>
+            </TextField>
+        </StackPane>
 
         <!-- Message d'erreur mot de passe -->
         <Label fx:id="passwordError1"
@@ -143,26 +171,50 @@
             </GridPane.margin>
         </Label>
 
-        <!-- Champ confirmation mot de passe -->
-        <PasswordField fx:id="confirmPasswordField1"
+        <!-- Champ confirmation mot de passe (masqué / visible via StackPane) -->
+        <StackPane GridPane.rowIndex="6">
+            <!-- Mot de passe masqué -->
+            <PasswordField fx:id="confirmPasswordField1"
+                           prefHeight="30.0"
+                           prefWidth="70.0"
+                           promptText="Confirmation de mot de passe">
+                <effect>
+                    <DropShadow height="15.0"
+                                offsetX="2.0"
+                                offsetY="2.0"
+                                radius="7.0"
+                                width="15.0">
+                        <color>
+                            <Color red="0.5960784554481506"
+                                   green="0.04313725605607033"
+                                   blue="0.04313725605607033" />
+                        </color>
+                    </DropShadow>
+                </effect>
+            </PasswordField>
+
+            <!-- Confirmation de mot de passe en clair -->
+            <TextField fx:id="confirmPasswordVisibleField1"
                        prefHeight="30.0"
                        prefWidth="70.0"
-                       promptText="Confirmer le mot de passe"
-                       GridPane.rowIndex="8">
-            <effect>
-                <DropShadow height="15.0"
-                            offsetX="2.0"
-                            offsetY="2.0"
-                            radius="7.0"
-                            width="15.0">
-                    <color>
-                        <Color red="0.5960784554481506"
-                               green="0.04313725605607033"
-                               blue="0.04313725605607033" />
-                    </color>
-                </DropShadow>
-            </effect>
-        </PasswordField>
+                       promptText="Confirmation de mot de passe"
+                       visible="false"
+                       managed="false">
+                <effect>
+                    <DropShadow height="15.0"
+                                offsetX="2.0"
+                                offsetY="2.0"
+                                radius="7.0"
+                                width="15.0">
+                        <color>
+                            <Color red="0.5960784554481506"
+                                   green="0.04313725605607033"
+                                   blue="0.04313725605607033" />
+                        </color>
+                    </DropShadow>
+                </effect>
+            </TextField>
+        </StackPane>
 
         <!-- Message d'erreur confirmation -->
         <Label fx:id="confirmPasswordError1"
@@ -262,5 +314,15 @@
                 <Insets bottom="20.0" />
             </GridPane.margin>
         </Hyperlink>
+
+        <!-- CheckBox pour voir le mot de passe -->
+        <HBox spacing="10" alignment="CENTER_LEFT" GridPane.rowIndex="7">
+            <CheckBox fx:id="loginSelectShowPassword"
+                      mnemonicParsing="false"
+                      text="Afficher le mot de passe"
+                      onAction="#handleToggleShowPassword"
+                     />
+        </HBox>
+
     </children>
 </GridPane>

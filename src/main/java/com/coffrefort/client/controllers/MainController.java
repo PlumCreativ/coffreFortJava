@@ -3,6 +3,7 @@ package com.coffrefort.client.controllers;
 import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.model.FileEntry;
 import com.coffrefort.client.model.NodeItem;
+import com.coffrefort.client.model.Quota;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -16,6 +17,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.scene.control.TableRow;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,6 +37,11 @@ public class MainController {
 
     @FXML private ProgressBar quotaBar;
     @FXML private Label quotaLabel;
+    private String quotaColor = "#5cb85c"; //=> pour la couleur persistante
+    private boolean quotaStyleInitialized = false;
+    private int quotaStyleRetries = 0;
+    private static final int MAX_QUOTA_STYLE_RETRIES = 20;
+
     @FXML private Label userEmailLabel;
     @FXML private Label statusLabel;
     @FXML private Label fileCountLabel;
@@ -49,6 +56,8 @@ public class MainController {
     private Runnable onLogout;
     private ObservableList<FileEntry> fileList = FXCollections.observableArrayList();
     private NodeItem currentFolder;
+
+    private Stage mainStage;
 
     //méthodes
     public void setApiClient(ApiClient apiClient) {
@@ -65,14 +74,18 @@ public class MainController {
         }
     }
 
+
+
     @FXML
     private void initialize() {
 
         //préparation l'interface
         setupTable();
         setupTreeView();
+        setupTreeViewRootContextMenu();
 
         //mettre en place le listener
+        // quand je clique sur un dossier => currentFolder <=> currentFolder= null
         treeView.getSelectionModel().selectedItemProperty().addListener((obs, oldItem, newItem) -> {
             if (newItem != null && newItem.getValue() != null) {
                 currentFolder = newItem.getValue();
@@ -97,6 +110,40 @@ public class MainController {
 
         System.out.println("userEmail: " + userEmailLabel.getText());
 
+        // pour garantir le styles inline => éviter le  CSS externe
+        // ✅ label bold inline
+        quotaLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #333333; -fx-font-size: 12px;");
+
+        quotaBar.setStyle("-fx-pref-height: 8px;");
+
+        // IMPORTANT : on laisse JavaFX créer la skin, puis on stylise (avec retry)
+        Platform.runLater(this::refreshQuotaBarStyleWithRetry);
+
+        // Si la scene arrive / change -> restyle
+        quotaBar.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                quotaStyleRetries = 0;
+                Platform.runLater(this::refreshQuotaBarStyleWithRetry);
+            }
+        });
+
+        // Si la skin change -> restyle
+        quotaBar.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+            quotaStyleRetries = 0;
+            Platform.runLater(this::refreshQuotaBarStyleWithRetry);
+        });
+
+        // À chaque changement de progress, JavaFX peut reconstruire la bar -> restyle
+        quotaBar.progressProperty().addListener((obs, oldV, newV) -> {
+            Platform.runLater(this::refreshQuotaBarStyle);
+        });
+
+        // ✅ premier passage
+        Platform.runLater(() -> {
+            initQuotaBarStyleOnce();
+            refreshQuotaBarStyle();
+        });
+
     }
 
 
@@ -107,8 +154,8 @@ public class MainController {
         // Configuration des colonnes
         nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
 
-        //il y a un problème avec "sizeFormatted"
-        sizeCol.setCellValueFactory(new PropertyValueFactory<>("sizeFormatted"));
+
+        sizeCol.setCellValueFactory(new PropertyValueFactory<>("formattedSize"));
         dateCol.setCellValueFactory(new PropertyValueFactory<>("updatedAtFormatted"));
 
         table.setItems(fileList);
@@ -130,14 +177,28 @@ public class MainController {
         });
 
         // Double-clic pour télécharger => pour plus tard
-        table.setOnMouseClicked(event -> {
-            if (event.getClickCount() == 2) {
-                FileEntry selected = table.getSelectionModel().getSelectedItem();
-                if (selected != null) {
+//        table.setOnMouseClicked(event -> {
+//            if (event.getClickCount() == 2) {
+//                FileEntry selected = table.getSelectionModel().getSelectedItem();
+//                if (selected != null) {
+//                    handleDownload(selected);
+//                }
+//            }
+//        });
+
+        //double cliq sur une ligne
+        table.setRowFactory(tv -> {
+            TableRow<FileEntry> row = new TableRow<>();
+
+            row.setOnMouseClicked(event -> {
+                if(event.getClickCount() ==2 && !row.isEmpty()){
+                    FileEntry selected = row.getItem();
                     handleDownload(selected);
                 }
-            }
+            });
+            return row;
         });
+
     }
 
 
@@ -185,18 +246,68 @@ public class MainController {
     private ContextMenu createFolderContextMenu(TreeCell<NodeItem>  cell){
         ContextMenu menu = new ContextMenu();
 
+
+        MenuItem createInside = new MenuItem("Nouveau dossier ici...");
+        createInside.setOnAction(event -> {
+            NodeItem folder = cell.getItem();
+            if (folder != null){
+                openCreateFolderDialog(folder); // => parent = dossier cliqué
+            }
+        });
+
         MenuItem deleteItem = new MenuItem("Supprimer ce dossier...");
         deleteItem.setOnAction(event -> {
             NodeItem folder = cell.getItem();
-            TreeItem<NodeItem> treeItem =  cell.getTreeItem();
+            TreeItem<NodeItem> treeItem = cell.getTreeItem();
 
             if (folder != null && treeItem != null) {
                 handleDeleteFolder(folder, treeItem);
             }
         });
 
-        menu.getItems().addAll(deleteItem);
+        menu.getItems().addAll(createInside, new SeparatorMenuItem(), deleteItem);
         return menu;
+    }
+
+
+    private void setupTreeViewRootContextMenu(){
+        ContextMenu rootMenu = new ContextMenu();
+
+        MenuItem createRootFolder = new MenuItem("Nouveau dossier à la racine...");
+        createRootFolder.setOnAction(event -> openCreateFolderDialog(null));
+        rootMenu.getItems().addAll(createRootFolder);
+
+
+        treeView.setOnContextMenuRequested(event -> {
+
+            // si la souris est au-dessus d'une TreeCell => menu du dossier
+            TreeCell<?> hoveredCell = (TreeCell<?>) treeView.lookup(".tree-cell:hover");
+            if(hoveredCell != null && hoveredCell.getItem() != null){
+                return; //laisser le menu contextuel du TreeCell à fonctionner
+            }
+
+            //zone vide => affichage le menu racine
+            rootMenu.show(treeView, event.getScreenX(), event.getScreenY());
+            event.consume();
+        });
+
+        //si on fait clic gauche ailleurs => fermer le menu
+        treeView.setOnMousePressed(event -> {
+            if(rootMenu.isShowing()){
+                rootMenu.hide();
+            }
+
+            if(event.isPrimaryButtonDown()){
+                TreeCell<?> heveredCell = (TreeCell<?>) treeView.lookup(".tree-cell:hover");
+                if(heveredCell == null && heveredCell.getItem() == null){
+                    treeView.getSelectionModel().clearSelection();
+                    currentFolder = null;
+                    fileList.clear();
+                    updateFileCount();
+                    statusLabel.setText("Aucun dossier séléctionné");
+                }
+            }
+        });
     }
 
 
@@ -214,16 +325,26 @@ public class MainController {
                     TreeItem<NodeItem> rootItem = buildTree(root);
                     treeView.setRoot(rootItem);
 
-                    // Sélectionner le premier dossier si disponible
-                    if (!rootItem.getChildren().isEmpty()) {
+//                    Sélectionner le premier dossier si disponible
+//                    il ne faut plus séléctionner automatiquement le premier dossier!!
+//                    if (!rootItem.getChildren().isEmpty()) {
+//
+//
+//                        TreeItem<NodeItem> first = rootItem.getChildren().get(0);
+//                        treeView.getSelectionModel().select(first);
+//                        currentFolder = first.getValue();
+//
+//                        // charge les fichiers du 1er dossier
+//                        loadFiles(currentFolder);
+//                    }
 
-                        TreeItem<NodeItem> first = rootItem.getChildren().get(0);
-                        treeView.getSelectionModel().select(first);
-                        currentFolder = first.getValue();
 
-                        // charge les fichiers du 1er dossier
-                        loadFiles(currentFolder);
-                    }
+                    treeView.getSelectionModel().clearSelection();
+                    currentFolder = null;
+
+                    //vider la table tant qu'aucun dossier n'est choisi
+                    fileList.clear();
+                    updateFileCount();
                     statusLabel.setText("Données chargées");
                 });
 
@@ -297,6 +418,55 @@ public class MainController {
         }).start();
     }
 
+    private void initQuotaBarStyleOnce() {
+        if (quotaStyleInitialized) return;
+        quotaStyleInitialized = true;
+
+        // Track (fond) : on le fixe une fois (sera réappliqué si skin change via refresh)
+        var track = quotaBar.lookup(".track");  //=> cherche dans la ProgressBar le nœud interne CSS nommé .track
+        if (track != null) {
+            track.setStyle("-fx-background-color: #eeeeee; -fx-background-radius: 4px; -fx-background-insets: 0;");
+        }
+    }
+
+    private void setQuotaColor(String hexColor) {
+        quotaColor = hexColor;
+        refreshQuotaBarStyleWithRetry();
+    }
+
+    private void refreshQuotaBarStyleWithRetry() {
+        // Essayer d'appliquer, et si bar/track pas prêts, retenter quelques pulses
+        if (!refreshQuotaBarStyle()) {
+            if (quotaStyleRetries++ < MAX_QUOTA_STYLE_RETRIES) {
+                Platform.runLater(this::refreshQuotaBarStyleWithRetry);
+            } else {
+                System.out.println("QuotaBar style: impossible de trouver .bar/.track après retries");
+            }
+        }
+    }
+
+    /**
+     * @return true si .bar existe (style appliqué), false sinon
+     */
+    private boolean refreshQuotaBarStyle() {
+        var track = quotaBar.lookup(".track");
+        var bar = quotaBar.lookup(".bar");
+
+        // si pas encore prêt, on ne fait rien
+        if (track == null || bar == null) {
+            return false;
+        }
+
+        track.setStyle("-fx-background-color: #eeeeee; -fx-background-radius: 4px; -fx-background-insets: 0;");
+        bar.setStyle(
+                "-fx-background-color: " + quotaColor + ";" +
+                        "-fx-background-radius: 4px;" +
+                        "-fx-background-insets: 0;"
+        );
+
+        return true;
+    }
+
     /**
      * mettre à jour le quota
      */
@@ -307,39 +477,44 @@ public class MainController {
                 var quota = apiClient.getQuota();
 
                 Platform.runLater(() -> {
-
-                    if(quota == null){
+                    if (quota == null) {
                         quotaBar.setProgress(0.0);
                         quotaLabel.setText("0 B / 0 B");
-                        quotaBar.setStyle("-fx-accent: #980b0b;");
+
+                        setQuotaColor("#d9534f"); //rouge
+                        refreshQuotaBarStyleWithRetry();
                         return;
                     }
+
                     double ratio = quota.getUsageRatio();
+                    if (ratio < 0) ratio = 0;
+                    if (ratio > 1) ratio = 1;
 
-                    if(ratio < 0){ ratio = 0;}
-                    if(ratio > 1){ ratio = 1;}
+                    // couleur
+                    if (ratio >= 0.9) quotaColor = "#d9534f"; //rouge
+                    else if (ratio >= 0.8) quotaColor = "#f0ad4e"; //orange
+                    else quotaColor = "#5cb85c"; //vert
 
-                    quotaBar.setProgress(ratio);
+                    // progress
+                    quotaBar.setProgress(ratio); // valeur entre 0 et 1
 
-                    String used = formatSize(quota.getUsed());
-                    String total = formatSize(quota.getMax());
-                    quotaLabel.setText(used + " / " + total);
+                    // texte
+                    quotaLabel.setText(formatSize(quota.getUsed()) + " / " + formatSize(quota.getMax()));
 
-                    // Changer la couleur selon l'utilisation
-                    if (ratio >= 0.9) {
-                        quotaBar.setStyle("-fx-accent: #d9534f;"); // Rouge
-                    } else if (ratio >= 0.8) {
-                        quotaBar.setStyle("-fx-accent: #f0ad4e;"); // Orange
-                    } else {
-                        quotaBar.setStyle("-fx-accent: #980b0b;"); // Rouge normal
-                    }
+                    // restyle (important après setProgress) => pour éviter que JavaFX reconstruite le noeud interne
+                    quotaStyleRetries = 0;
+                    refreshQuotaBarStyleWithRetry();
                 });
+
             } catch (Exception e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    quotaBar.setProgress(0);
+                    quotaBar.setProgress(0.0);
                     quotaLabel.setText("Erreur quota");
-                    quotaBar.setStyle("-fx-accent: #d9534f;");
+
+                    setQuotaColor("#d9534f"); //rouge
+                    quotaStyleRetries = 0;
+                    refreshQuotaBarStyleWithRetry();
                 });
             }
         }).start();
@@ -357,8 +532,8 @@ public class MainController {
     }
 
 
-    /**à compléter la méthode upload!!!!
-     * Gestion d'upload
+    /**
+     * Gestion d'upload des fichiers
      */
     @FXML
     private void handleUpload() {
@@ -372,6 +547,10 @@ public class MainController {
             //récupération du contrôleur
             UploadDialogController controller = loader.getController();
             controller.setApiClient(apiClient);
+
+            if(currentFolder != null){
+                controller.setTargetFolderId(currentFolder.getId());
+            }
 
             Stage dialogStage = new Stage();
             dialogStage.setTitle("Uploader des fichiers");
@@ -496,11 +675,54 @@ public class MainController {
         }).start();
     }
 
-    // à écrire!!!!
+    /**
+     * gestion de téléchargement
+     * @param file
+     */
     private void handleDownload(FileEntry file) {
-        statusLabel.setText("Téléchargement: " + file.getName());
-        // TODO: Implémenter le téléchargement
-        showInfo("Téléchargement", "Téléchargement de: " + file.getName());
+//        statusLabel.setText("Téléchargement: " + file.getName());
+//        // TODO: Implémenter le téléchargement
+//        showInfo("Téléchargement", "Téléchargement de: " + file.getName());
+
+        if(file == null) return;
+
+        FileChooser chooser = new FileChooser();
+
+        //à choisir où enregistrer
+        chooser.setTitle("Enregistrer le fichier...");
+
+        // définir le nom => par défaut
+        chooser.setInitialFileName(file.getName());
+
+        //au cas ou pour définir un filtre par extension
+        // chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tous les fichiers", "*.*"));
+
+        File target = chooser.showSaveDialog(table.getScene().getWindow());
+        if (target == null){
+            statusLabel.setText("Le téléchargement est annulé");
+            return;
+        }
+
+        statusLabel.setText("Téléchargement de " + file.getName() + "...");
+
+        new Thread(() -> {
+            try {
+                apiClient.downloadFileTo(file.getId(), target);
+
+                Platform.runLater(() -> {
+                    statusLabel.setText("Téléchargé " + target.getAbsolutePath());
+                    updateQuota();
+                });
+            }catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    showError("Téléchargement", "Impossible de télécharger: " + e.getMessage());
+                    statusLabel.setText("Erreur de téléchargement");
+                });
+
+            }
+        }).start();
+
     }
 
     /**
@@ -508,49 +730,19 @@ public class MainController {
      */
     @FXML
     private void handleNewFolder() {
-        newFolderButton.setDisable(true);
-        try{
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/createFolder.fxml")
-            );
-
-            VBox root = loader.load();
-
-            // Récupération du contrôleur
-            CreateFolderController controller = loader.getController();
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Créer un nouveau dossier");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(newFolderButton.getScene().getWindow());
-            dialogStage.setScene(new Scene(root));
-
-            // Injection du stage et de la logique de déconnexion
-            controller.setDialogStage(dialogStage);
-
-            //quand user clique sur "Créer"
-            controller.setOnCreateFolder(this::createFolder);
-
-            dialogStage.showAndWait();
-        }catch(Exception e){
-            System.err.println("Erreur lors du chargement de createFolder.fxml");
-            e.printStackTrace();
-        }finally {
-            // Réactiver le bouton après fermeture du dialogue
-            newFolderButton.setDisable(false);
-        }
+        openCreateFolderDialog(currentFolder); // currentFolder peut être null => racine
     }
 
     /**
      * Création d'un Folder
      * @param name
      */
-    private void createFolder(String name) {
+    private void createFolder(String name, NodeItem parentFolder) {
         statusLabel.setText("Création du dossier...");
 
         new Thread(() -> {
             try {
-                boolean success = apiClient.createFolder(name, currentFolder);
+                boolean success = apiClient.createFolder(name, parentFolder); //=> parentFolder peut être null
 
                 Platform.runLater(() -> {
                     if (success) {
@@ -570,6 +762,40 @@ public class MainController {
         }).start();
     }
 
+    /**
+     * ouvrir le dialog CreatFolder.fxml pour créer un dossier avec à la racine
+     * @param parentFolder
+     */
+    private void openCreateFolderDialog(NodeItem parentFolder){
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/createFolder.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            CreateFolderController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Créer un nouveau dossier");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(treeView.getScene().getWindow());
+            dialogStage.setScene(new Scene(root));
+
+            controller.setDialogStage(dialogStage);
+
+            controller.setOnCreateFolder(name -> createFolder(name, parentFolder));
+
+            dialogStage.showAndWait();
+
+        }catch (Exception e){
+            System.err.println("Erreur lors du chargement de createFolder.fxml");
+            e.printStackTrace();
+            showError("Erreur", "Impossible d'ouvrir la fenêtre de création: " + e.getMessage());
+        }
+    }
+
     // à écrire!!!!
     @FXML
     private void handleOpenShares() {
@@ -578,7 +804,7 @@ public class MainController {
     }
 
     /**
-     *
+     * pour gérer la suppression d'un dossier
      * @param folder
      * @param treeItem
      */

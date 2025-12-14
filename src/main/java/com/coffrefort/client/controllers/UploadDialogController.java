@@ -39,8 +39,15 @@ public class UploadDialogController {
     // Callback optionnel après succès (pour rafraîchir la liste des fichiers, etc.)
     private Runnable onUploadSuccess;
 
+    private Integer targetFolderId;
+
 
     //méthodes
+
+    public void setTargetFolderId(Integer targetFolderId){
+        this.targetFolderId = targetFolderId;
+    }
+
     public void setApiClient(ApiClient apiClient) {
         this.apiClient = apiClient;
     }
@@ -84,8 +91,14 @@ public class UploadDialogController {
 
         List<File> files = fileChooser.showOpenMultipleDialog(owner);
         if (files != null && !files.isEmpty()) {
-            selectedFiles.clear();
-            selectedFiles.addAll(files);
+            //selectedFiles.clear(); => ce supprime tout!!!
+
+            for(File file : files){
+                if(!selectedFiles.contains(file)){
+                    selectedFiles.add(file);
+                }
+            }
+
             refreshSelectedFilesUI();
             uploadButton.setDisable(false);
             hideMessage();
@@ -104,6 +117,11 @@ public class UploadDialogController {
 
         if (apiClient == null) {
             showErrorMessage("Erreur interne : ApiClient non initialisé.");
+            return;
+        }
+
+        if(targetFolderId == null){
+            showErrorMessage("Aucun dossier sélectionné pour l'upload.");
             return;
         }
 
@@ -138,7 +156,7 @@ public class UploadDialogController {
                     updateMessage("Upload de " + file.getName() + " (" + (done + 1) + "/" + total + ")");
 
                     // upload réel
-                    apiClient.uploadFile(file);
+                    apiClient.uploadFile(file, targetFolderId);
 
                     done++;
                     updateProgress(done, total);

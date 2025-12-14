@@ -10,6 +10,7 @@
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.text.Text?>
 
+
 <BorderPane xmlns="http://javafx.com/javafx/21.0.2"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.coffrefort.client.controllers.MainController"
@@ -42,10 +43,9 @@
                 <VBox spacing="5" alignment="CENTER_RIGHT">
                     <HBox spacing="8" alignment="CENTER_RIGHT">
                         <Label text="Espace utilisé:" style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
-                        <Label fx:id="quotaLabel" text="0 / 1 GB" style="-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 12px;"/>
+                        <Label fx:id="quotaLabel" text="0 / 1 GB" styleClass="quota-label"/>
                     </HBox>
-                    <ProgressBar fx:id="quotaBar" prefWidth="200" prefHeight="8"
-                                 style="-fx-accent: #980b0b;"/>
+                    <ProgressBar fx:id="quotaBar" prefWidth="200" prefHeight="8"/>
                 </VBox>
 
                 <!-- Bouton déconnexion -->

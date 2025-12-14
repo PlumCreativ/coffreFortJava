@@ -7,10 +7,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 
 import java.io.IOException;
 import java.net.URI;
@@ -21,17 +18,25 @@ import java.net.http.HttpResponse;
 import com.coffrefort.client.util.JsonUtils;
 import com.coffrefort.client.util.JwtUtils;
 import com.coffrefort.client.config.AppProperties;
+import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
+
+import javax.swing.*;
 
 public class LoginController {
 
     //Propriétés
+    @FXML private GridPane rootPane;
     @FXML private TextField emailField;
     @FXML private PasswordField passwordField;
+    @FXML private TextField passwordVisibleField;
     @FXML private Label errorLabel;
+
+    @FXML private CheckBox loginSelectShowPassword;
 
     @FXML private Button connexionButton;
     @FXML private Label statusLabel;
+
 
     private final HttpClient http = HttpClient.newHttpClient();
 
@@ -45,6 +50,23 @@ public class LoginController {
 
 
     //méthodes
+
+
+    @FXML //=> il faut qu'il soit lier avec le .fxml!!
+    private void initialize(){
+
+        //on clique sur la scèe => retirer le focus du champs
+        rootPane.setOnMouseClicked(event -> {
+            if(event.getTarget() != emailField && event.getTarget() != passwordField && event.getTarget() != passwordVisibleField){
+                rootPane.requestFocus();
+            }
+        });
+
+        // Binder le texte des 2 champs mot de passe => avoir le même texte
+        passwordVisibleField.textProperty().bindBidirectional(passwordField.textProperty());
+    }
+
+
     public void setApiClient(ApiClient apiClient) {
         this.apiClient = apiClient;
     }
@@ -55,6 +77,39 @@ public class LoginController {
 
     public void setOnGoToRegister(Runnable onGoToRegister) {
         this.onGoToRegister = onGoToRegister;
+    }
+
+    /**
+     * Afficher ou masquer le mot de passe
+     */
+    @FXML
+    private void handleToggleShowPassword(){
+        if(loginSelectShowPassword.isSelected()){
+
+            //afficher le mot de passe
+            passwordVisibleField.setVisible(true);
+            passwordVisibleField.setManaged(true);
+
+            //cacher le password
+            passwordField.setVisible(false);
+            passwordField.setManaged(false);
+
+            //garder le curseur à la fin
+            passwordVisibleField.requestFocus();
+            passwordVisibleField.positionCaret(passwordVisibleField.getText().length());
+        }else{
+            //cacher le mot de passe
+            passwordField.setVisible(true);
+            passwordField.setManaged(true);
+
+            //cacher le champ de texte
+            passwordVisibleField.setVisible(false);
+            passwordVisibleField.setManaged(false);
+
+            //garder le curseur à la fin
+            passwordField.requestFocus();
+            passwordField.positionCaret(passwordField.getText().length());
+        }
     }
 
     /**
@@ -75,6 +130,11 @@ public class LoginController {
 
         if (email.isEmpty() || password.isEmpty()) {
             errorLabel.setText("Veuillez saisir l'email et le mot de passe.");
+            return;
+        }
+
+        if(loginSelectShowPassword.isSelected()){
+            errorLabel.setText("Veuillez masquer le mot de passe avant de vous inscrire.");
             return;
         }
 
@@ -137,4 +197,9 @@ public class LoginController {
             onGoToRegister.run();   // App.java ouvrira register.fxml
         }
     }
+
+
+
+
+
 }

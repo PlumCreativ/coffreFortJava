@@ -4,14 +4,12 @@ import com.coffrefort.client.config.AppProperties;
 import com.coffrefort.client.util.JwtUtils;
 import javafx.application.Application;
 import javafx.concurrent.Task;
-import javafx.scene.control.Button;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
 
 import com.coffrefort.client.ApiClient;
 import javafx.fxml.FXML;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextField;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -24,9 +22,14 @@ import com.coffrefort.client.util.JsonUtils;
 public class RegisterController extends Application {
 
     //propriétés
+    @FXML private GridPane rootPane;
     @FXML private TextField emailField1;
     @FXML private PasswordField passwordField1;
+    @FXML private TextField passwordVisibleField1;
     @FXML private PasswordField confirmPasswordField1;
+    @FXML private TextField confirmPasswordVisibleField1;
+
+    @FXML private CheckBox loginSelectShowPassword;
 
     @FXML private Label emailError1;
     @FXML private Label passwordError1;
@@ -57,6 +60,66 @@ public class RegisterController extends Application {
     }
 
 
+    @FXML //=> il faut qu'il soit lier avec le .fxml!!
+    private void initialize(){
+
+        //on clique sur la scèe => retirer le focus du champs
+        rootPane.setOnMouseClicked(event -> {
+            if(event.getTarget() != emailField1 && event.getTarget() != passwordField1 && event.getTarget() != confirmPasswordField1 ){
+                rootPane.requestFocus();
+            }
+        });
+
+
+
+        // Binder le texte des 2 champs mot de passe => avoir le même texte
+        passwordVisibleField1.textProperty().bindBidirectional(passwordField1.textProperty());
+        confirmPasswordVisibleField1.textProperty().bindBidirectional(confirmPasswordField1.textProperty());
+    }
+
+    /**
+     * Afficher ou masquer le mot de passe
+     */
+    @FXML
+    private void handleToggleShowPassword(){
+        if(loginSelectShowPassword.isSelected()){
+
+            //afficher le mot de passe et le confirmation de mot de passe
+            passwordVisibleField1.setVisible(true);
+            passwordVisibleField1.setManaged(true);
+            confirmPasswordVisibleField1.setVisible(true);
+            confirmPasswordVisibleField1.setManaged(true);
+
+            //cacher le password et le mot de passe
+            passwordField1.setVisible(false);
+            passwordField1.setManaged(false);
+            confirmPasswordField1.setVisible(false);
+            confirmPasswordField1.setManaged(false);
+
+            //garder le curseur à la fin
+            passwordVisibleField1.requestFocus();
+            passwordVisibleField1.positionCaret(passwordVisibleField1.getText().length());
+
+
+        }else{
+            //cacher le mot de passe et confirmation de mot de passe
+            passwordField1.setVisible(true);
+            passwordField1.setManaged(true);
+            confirmPasswordField1.setVisible(true);
+            confirmPasswordField1.setManaged(true);
+
+            //cacher les champs de texte
+            passwordVisibleField1.setVisible(false);
+            passwordVisibleField1.setManaged(false);
+            confirmPasswordVisibleField1.setVisible(false);
+            confirmPasswordVisibleField1.setManaged(false);
+
+            //garder le curseur à la fin
+            passwordField1.requestFocus();
+            passwordField1.positionCaret(passwordField1.getText().length());
+        }
+    }
+
     /**
      * Gestion de l'Inscription et connexion: l'un après l'autre
      */
@@ -78,6 +141,11 @@ public class RegisterController extends Application {
         String confirmPassword = confirmPasswordField1.getText() != null ? confirmPasswordField1.getText().trim() : "";
 
         boolean hasError = false;
+
+        if(loginSelectShowPassword.isSelected()){
+            showLabel(errorLabel1, "Veuillez masquer le mot de passe avant de vous inscrire.");
+            return;
+        }
 
         //Validation email
         if(email.isEmpty()){
