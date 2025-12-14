@@ -7,13 +7,16 @@ import com.coffrefort.client.model.Quota;
 import com.coffrefort.client.util.JsonUtils;
 import com.coffrefort.client.util.JwtUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +36,7 @@ public class ApiClient {
     //méthodes
     // Constructeur par défaut avec URL localhost
     public ApiClient() {
-        this("http://localhost:8080");
+        this("http://localhost:9081");
     }
 
     // Constructeur avec URL personnalisée
@@ -188,6 +191,10 @@ public class ApiClient {
         return token;
     }
 
+    /**
+     *
+     * @return
+     */
     public static ApiClient getInstance() {
         if(INSTANCE == null) {
             INSTANCE = new ApiClient();
@@ -235,17 +242,32 @@ public class ApiClient {
         }
 
         int userId = Integer.parseInt(userIdStr);
-        int parentId = 0;
-        if(parentFolder != null) {
+
+        Integer parentId = null; // => null => dossier à la racine
+        if(parentFolder != null && parentFolder.getId() != 0) {
             parentId = parentFolder.getId();
         }
 
-        String jsonBody = "{"
-                + "\"user_id\": " + userId + ","
-                + "\"parent_id\": " + parentId + ","
-                + "\"name\": \"" + escapeJson(name) + "\""
-                + "}";
+        //construction de json
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"user_id\": ").append(userId).append(",");
 
+        if(parentId == null) {
+            sb.append("\"parent_id\": null,");
+        }else{
+            sb.append("\"parent_id\": ").append(parentId).append(",");
+        }
+
+        sb.append("\"name\": \"").append(escapeJson(name)).append("\"");
+        sb.append("}");
+//        String jsonBody = "{"
+//                + "\"user_id\": " + userId + ","
+//                + "\"parent_id\": " + parentId + ","
+//                + "\"name\": \"" + escapeJson(name) + "\""
+//                + "}";
+
+        String jsonBody = sb.toString();
         System.out.println("POST /folders body = " + jsonBody);
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -276,14 +298,27 @@ public class ApiClient {
                 .replace("\"", "\\\"");
     }
 
-
     /**
-     * uploader un ou des fichier(s)
+     * uploader un fichier dans le dossier racine par défaut
      * @param file
      * @return
      * @throws Exception
      */
-    public boolean uploadFile(File file) throws Exception {
+    public boolean uploadFile(File file) throws Exception{
+        //s'il n'y a pas dossier => on passe null
+        return uploadFile(file, null);
+    }
+
+
+
+    /**
+     * * uploader un ou des fichier(s)
+     * @param file fichier local
+     * @param folderId  id du dossier cible (peut être null pour racine si ton backend le gère)
+     * @return
+             * @throws Exception
+     */
+    public boolean uploadFile(File file, Integer folderId) throws Exception {
         if (file == null || !file.exists()) {
             throw new Exception("Fichier invalide");
         }
@@ -301,7 +336,7 @@ public class ApiClient {
         String boundary = "----CryptoVaultBoundary" + UUID.randomUUID();
 
         // Construire le body multipart
-        byte[] body = buildMultipartBody(file, boundary);
+        byte[] body = buildMultipartBody(file, boundary, folderId);
 
         // Faire la requête HTTP
         HttpRequest request = HttpRequest.newBuilder()
@@ -336,14 +371,13 @@ public class ApiClient {
         return true;
     }
 
-    /**
-     *
+     /**
      * @param file
      * @param boundary
      * @return
      * @throws Exception
      */
-    private byte[] buildMultipartBody(File file, String boundary) throws Exception {
+    private byte[] buildMultipartBody(File file, String boundary, Integer folderId) throws Exception {
         String CRLF = "\r\n";
 
         String mimeType = Files.probeContentType(file.toPath());
@@ -351,42 +385,37 @@ public class ApiClient {
             mimeType = "application/octet-stream"; // fallback
         }
 
-        //Partie folder_id
-        String folderPart =
-                "--" + boundary + CRLF +
-                        "Content-Disposition: form-data; name=\"folder_id\"" + CRLF + CRLF +
-                        "2" + CRLF;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
 
-        //partie file
+        // ---- Part "folder_id" (si fourni)
+        if (folderId != null) {
+            String folderPart =
+                    "--" + boundary + CRLF +
+                            "Content-Disposition: form-data; name=\"folder_id\"" + CRLF + CRLF +
+                            folderId + CRLF;
+
+            output.write(folderPart.getBytes(StandardCharsets.UTF_8));
+        }
+
+        // ---- Part "file"
         String filePartHeader =
                 "--" + boundary + CRLF +
-                "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + CRLF +
-                "Content-Type: " + mimeType + CRLF + CRLF;
+                        "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + CRLF +
+                        "Content-Type: " + mimeType + CRLF + CRLF;
 
-        String ending =
-                CRLF + "--" + boundary + "--" + CRLF;
+        output.write(filePartHeader.getBytes(StandardCharsets.UTF_8));
 
         byte[] fileBytes = Files.readAllBytes(file.toPath());
+        output.write(fileBytes);
 
-        byte[] folderBytes = folderPart.getBytes(StandardCharsets.UTF_8);
-        byte[] headerBytes = filePartHeader.getBytes(StandardCharsets.UTF_8);
-        byte[] endingBytes = ending.getBytes(StandardCharsets.UTF_8);
+        // Fin de la part fichier
+        output.write(CRLF.getBytes(StandardCharsets.UTF_8));
 
-        byte[] fullBody = new byte[folderBytes.length + headerBytes.length + fileBytes.length + endingBytes.length];
+        // ---- Fin multipart
+        String ending = "--" + boundary + "--" + CRLF;
+        output.write(ending.getBytes(StandardCharsets.UTF_8));
 
-        int pos = 0;
-        System.arraycopy(folderBytes, 0, fullBody, pos, folderBytes.length);
-        pos += folderBytes.length;
-
-        System.arraycopy(headerBytes, 0, fullBody, 0, headerBytes.length);
-        pos += headerBytes.length;
-
-        System.arraycopy(fileBytes, 0, fullBody, headerBytes.length, fileBytes.length);
-        pos += fileBytes.length;
-
-        System.arraycopy(endingBytes, 0, fullBody, headerBytes.length + fileBytes.length, endingBytes.length);
-
-        return fullBody;
+        return output.toByteArray();
     }
 
 
@@ -577,6 +606,12 @@ public class ApiClient {
 
     }
 
+    /**
+     * supprimer un dossier choisi
+     * @param id
+     * @return
+     * @throws Exception
+     */
     public Boolean deleteFolder(int id) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
@@ -607,6 +642,39 @@ public class ApiClient {
         }
         System.out.println("Erreur pendant la suppression du dossier. Status=" + status + " body=" + response.body());
         return false;
+
+    }
+
+    /**
+     * télécharger un file
+     * @param fileId
+     * @param target
+     * @throws Exception
+     */
+    public void downloadFileTo(long fileId, File target) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/files/" + fileId + "/download"))
+                .GET()
+                .header("Authorization", "Bearer " + authToken)
+                .build();
+
+        HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+
+        if(response.statusCode() != 200) {
+
+            //lire le message d'erreur du backend
+            String errorMessage = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
+            throw new RuntimeException("HTTP " +response.statusCode() + " lors du téléchargement: " + errorMessage);
+        }
+
+        //écriture le flux dans le fichier
+        try (InputStream in = response.body()) {
+            Files.copy(in, target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
 
     }
 

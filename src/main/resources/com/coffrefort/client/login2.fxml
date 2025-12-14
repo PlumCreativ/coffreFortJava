@@ -2,6 +2,8 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Hyperlink?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.TextField?>
@@ -16,14 +18,12 @@
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.text.Text?>
 
-<?import javafx.scene.control.Hyperlink?>
-<GridPane hgap="5"
-          vgap="20.0"
-          prefHeight="500.0"
-          prefWidth="350.0"
-          minHeight="500.0"
-          minWidth="350.0"
-          style="-fx-background-color: #E5E5E5;"
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<GridPane fx:id="rootPane" hgap="5"
+          minHeight="500.0" minWidth="350.0"
+          prefHeight="500.0" prefWidth="350.0"
+          style="-fx-background-color: #E5E5E5;" vgap="20.0"
           xmlns="http://javafx.com/javafx/25"
           xmlns:fx="http://javafx.com/fxml/1"
           fx:controller="com.coffrefort.client.controllers.LoginController">
@@ -55,12 +55,9 @@
         </ImageView>
 
         <!-- Titre -->
-        <Text fill="#980b0b"
-              strokeType="OUTSIDE"
-              strokeWidth="0.0"
-              text="Connexion"
-              textAlignment="CENTER"
-              wrappingWidth="150.0"
+        <Text fill="#980b0b" strokeType="OUTSIDE"
+              strokeWidth="0.0" text="Connexion"
+              textAlignment="CENTER" wrappingWidth="150.0"
               GridPane.rowIndex="2">
             <font>
                 <Font name="System Bold" size="24.0" />
@@ -89,31 +86,52 @@
             </effect>
         </TextField>
 
-        <!-- Champ mot de passe -->
-        <PasswordField fx:id="passwordField"
+        <!-- Champ mot de passe (masqué / visible via StackPane) -->
+        <StackPane GridPane.rowIndex="5">
+            <!-- Mot de passe masqué -->
+            <PasswordField fx:id="passwordField"
+                           prefHeight="30.0"
+                           prefWidth="70.0"
+                           promptText="Mot de passe">
+                <effect>
+                    <DropShadow height="15.0"
+                                offsetX="2.0"
+                                offsetY="2.0" radius="7.0"
+                                width="15.0">
+                        <color>
+                            <Color red="0.5960784554481506"
+                                   green="0.04313725605607033"
+                                   blue="0.04313725605607033" />
+                        </color>
+                    </DropShadow>
+                </effect>
+            </PasswordField>
+
+            <!-- Mot de passe en clair -->
+            <TextField fx:id="passwordVisibleField"
                        prefHeight="30.0"
                        prefWidth="70.0"
                        promptText="Mot de passe"
-                       GridPane.rowIndex="5">
-            <effect>
-                <DropShadow height="15.0"
-                            offsetX="2.0"
-                            offsetY="2.0"
-                            radius="7.0"
-                            width="15.0">
-                    <color>
-                        <Color red="0.5960784554481506"
-                               green="0.04313725605607033"
-                               blue="0.04313725605607033" />
-                    </color>
-                </DropShadow>
-            </effect>
-        </PasswordField>
+                       visible="false"
+                       managed="false">
+                <effect>
+                    <DropShadow height="15.0"
+                                offsetX="2.0"
+                                offsetY="2.0"
+                                radius="7.0"
+                                width="15.0">
+                        <color>
+                            <Color red="0.5960784554481506"
+                                   green="0.04313725605607033"
+                                   blue="0.04313725605607033" />
+                        </color>
+                    </DropShadow>
+                </effect>
+            </TextField>
+        </StackPane>
 
         <!-- Zone message d'erreur -->
-        <Label fx:id="errorLabel"
-               style="-fx-text-fill: #b00000;"
-               GridPane.rowIndex="6">
+        <Label fx:id="errorLabel" style="-fx-text-fill: #b00000;" GridPane.rowIndex="7">
             <GridPane.margin>
                 <Insets />
             </GridPane.margin>
@@ -143,9 +161,7 @@
         </Button>
 
         <!-- Lien vers connexion -->
-        <HBox alignment="CENTER"
-              spacing="5.0"
-              GridPane.rowIndex="12">
+        <HBox alignment="CENTER" spacing="5.0" GridPane.rowIndex="12">
             <GridPane.margin>
                 <Insets top="10.0" />
             </GridPane.margin>
@@ -171,10 +187,8 @@
 
         <!-- Mentions légales en bas -->
         <Hyperlink fx:id="mentionslégales"
-
                    style="-fx-text-fill: #980b0b; -fx-cursor: hand;"
-                   text="Mentions Légales"
-                   GridPane.rowIndex="12">
+                   text="Mentions Légales" GridPane.rowIndex="12">
             <font>
                 <Font size="12.0" />
             </font>
@@ -183,5 +197,36 @@
             </GridPane.margin>
         </Hyperlink>
 
+        <!-- CheckBox pour voir le mot de passe-->
+        <HBox spacing="10" alignment="CENTER_LEFT" GridPane.rowIndex="6">
+            <CheckBox fx:id="loginSelectShowPassword"
+                      mnemonicParsing="false"
+                      text="Afficher le mot de passe"
+                      onAction="#handleToggleShowPassword"/>
+
+            <!-- Region extensible pour pousser le lien à droite -->
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <Hyperlink fx:id="ForgotPasswordLink"
+                       text="Mot de passe oublié?"
+                       style="-fx-text-fill: #980b0b; -fx-cursor: hand;" />
+        </HBox>
+
+
     </children>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+   </rowConstraints>
 </GridPane>
