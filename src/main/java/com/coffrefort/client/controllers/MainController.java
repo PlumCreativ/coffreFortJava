@@ -111,12 +111,15 @@ public class MainController {
         System.out.println("userEmail: " + userEmailLabel.getText());
 
         // pour garantir le styles inline => éviter le  CSS externe
-        // ✅ label bold inline
+        // label bold inline
         quotaLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #333333; -fx-font-size: 12px;");
 
         quotaBar.setStyle("-fx-pref-height: 8px;");
 
         // IMPORTANT : on laisse JavaFX créer la skin, puis on stylise (avec retry)
+        //progressbar => création des noeuds intern .track(fond), .bar(partie remplie)
+
+
         Platform.runLater(this::refreshQuotaBarStyleWithRetry);
 
         // Si la scene arrive / change -> restyle
@@ -577,15 +580,101 @@ public class MainController {
     }
 
 
-    // à écrire!!!!
+    /**
+     * Gestion de share des fichiers
+     */
     @FXML
     private void handleShare() {
         FileEntry selected = table.getSelectionModel().getSelectedItem();
         if (selected == null) return;
 
         // TODO: Ouvrir le dialog de partage
-        showInfo("Partage", "Fonctionnalité de partage pour: " + selected.getName());
+//        showInfo("Partage", "Fonctionnalité de partage pour: " + selected.getName());
+
+        shareButton.setDisable(true);
+
+        try{
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/share.fxml")
+            );
+
+            VBox root =  loader.load();
+
+            //récupération du contrôleur
+            ShareController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle(("Créer un lien de partage"));
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(shareButton.getScene().getWindow());
+
+            //interdire de redimensionner  la fenêtre => taille fixe
+            dialogStage.setResizable(false);
+            dialogStage.setScene(new Scene(root));
+
+            controller.setStage(dialogStage);
+            controller.setItemName(selected.getName());
+
+            //callback => quand user clique sur partage
+            controller.setOnShare(recipient -> {
+                statusLabel.setText("Partage en cours ... ");
+
+                new Thread(() -> {
+                    try{
+                        String url  = apiClient.shareFile(selected.getId(), recipient);
+
+                        Platform.runLater(() -> {
+                            Platform.runLater(() -> {
+                                statusLabel.setText("Lien: " + url);
+                                showShareDialog(url);
+
+                            });
+                        });
+                        System.out.println(url);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            showError("Partage", "Erreur " + e.getMessage());
+                            statusLabel.setText("Erreur pendant le partage");
+                        });
+                    }
+                }).start(); //lancement du Thread
+
+            });
+
+            //réactivation du bouton de partage
+            dialogStage.setOnHidden(event -> shareButton.setDisable(false));
+
+            dialogStage.showAndWait();
+
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Erreur", "Impossible d'ouvrir la fenêtre de partage "+e.getMessage());
+            shareButton.setDisable(false);
+        }
     }
+
+
+    /**
+     * Afficher URL
+     * @param url
+     */
+    private void showShareDialog(String url){
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Partage réusssi");
+        alert.setHeaderText("Lien de partage généré");
+
+        TextArea area = new TextArea(url);
+        area.setEditable(false);
+        area.setWrapText(true);
+        area.setPrefRowCount(3);
+
+        alert.getDialogPane().setContent(area);
+        alert.showAndWait();
+    }
+
 
     /**
      * supprimer des fichiers

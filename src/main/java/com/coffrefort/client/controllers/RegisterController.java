@@ -19,7 +19,7 @@ import java.net.http.HttpResponse;
 import com.coffrefort.client.util.JsonUtils;
 
 
-public class RegisterController extends Application {
+public class RegisterController {
 
     //propriétés
     @FXML private GridPane rootPane;
@@ -126,6 +126,7 @@ public class RegisterController extends Application {
     @FXML
     public void handleRegister(){
 
+        System.out.println("handleRegister() appelé !");
         clearMessages();
 
         // Nettoyer le message d'erreur
@@ -251,7 +252,8 @@ public class RegisterController extends Application {
                 statusLabel1.setText("");
             }
             if(errorLabel1 != null) {
-                errorLabel1.setText("Erreur pendant l'inscription.");
+                showLabel(errorLabel1, "Erreur pendant l'inscription.");
+
             }
 
             Throwable ex = task.getException();
@@ -308,16 +310,16 @@ public class RegisterController extends Application {
     }
 
     public void showSuccess(String message){
-        successLabel1.setText(message);
+        showLabel(successLabel1, message);
     }
 
 
-    public static void main(String[] args) {
-        launch(args);
-    }
-
-    @Override
-    public void start(Stage primaryStage) {
-
-    }
+//    public static void main(String[] args) {
+//        launch(args);
+//    }
+//
+//    @Override
+//    public void start(Stage primaryStage) {
+//
+//    }
 }
