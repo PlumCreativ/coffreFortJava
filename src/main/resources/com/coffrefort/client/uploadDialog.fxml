@@ -122,28 +122,28 @@
             </VBox>
 
             <!-- Nom du fichier (optionnel) -->
-            <VBox spacing="5">
-                <Label style="-fx-text-fill: #333333; -fx-font-size: 11px;"
-                       text="Nom personnalisé (optionnel) :" />
-                <TextField fx:id="customNameField"
-                           promptText="Laissez vide pour garder le nom original"
-                           style="-fx-background-radius: 4; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-border-radius: 4;">
-                    <effect>
-                        <DropShadow height="5.0"
-                                    offsetX="1.0"
-                                    offsetY="1.0"
-                                    radius="2.0"
-                                    width="5.0">
-                            <color>
-                                <Color red="0.6"
-                                       green="0.04"
-                                       blue="0.04"
-                                       opacity="0.15" />
-                            </color>
-                        </DropShadow>
-                    </effect>
-                </TextField>
-            </VBox>
+<!--            <VBox spacing="5">-->
+<!--                <Label style="-fx-text-fill: #333333; -fx-font-size: 11px;"-->
+<!--                       text="Nom personnalisé (optionnel) :" />-->
+<!--                <TextField fx:id="customNameField"-->
+<!--                           promptText="Laissez vide pour garder le nom original"-->
+<!--                           style="-fx-background-radius: 4; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-border-radius: 4;">-->
+<!--                    <effect>-->
+<!--                        <DropShadow height="5.0"-->
+<!--                                    offsetX="1.0"-->
+<!--                                    offsetY="1.0"-->
+<!--                                    radius="2.0"-->
+<!--                                    width="5.0">-->
+<!--                            <color>-->
+<!--                                <Color red="0.6"-->
+<!--                                       green="0.04"-->
+<!--                                       blue="0.04"-->
+<!--                                       opacity="0.15" />-->
+<!--                            </color>-->
+<!--                        </DropShadow>-->
+<!--                    </effect>-->
+<!--                </TextField>-->
+<!--            </VBox>-->
         </VBox>
 
         <!-- Barre de progression (cachée par défaut) -->

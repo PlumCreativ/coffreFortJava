@@ -188,8 +188,9 @@ public class RegisterController {
             statusLabel1.setText("Inscription en cours...");
         }
 
+        //int quotaTotal = 31457280; // 30 Mo par défaut pour tests
         int quotaTotal = 1073741824; //=> 1 giga
-        Boolean isAdmin = false;     //=> pas admin
+        //Boolean isAdmin = false;     //=> pas admin => backend qui décide!!!
 
 
         //Task pour appel HTTP en arrière-plan
@@ -198,7 +199,7 @@ public class RegisterController {
             protected String call() throws Exception {
 
                 // Appel à ApiClient.register()
-                return apiClient.register(email, password, quotaTotal, isAdmin);
+                return apiClient.register(email, password, quotaTotal);
 
             }
         };

@@ -57,6 +57,8 @@ public class ApiClient {
     public String login(String email, String password) throws Exception {
         String url = baseUrl + "/auth/login";
 
+
+
         // Construction du body JSON
         String jsonBody = String.format(
                 "{\"email\":\"%s\",\"password\":\"%s\"}",
@@ -111,17 +113,17 @@ public class ApiClient {
      * @param email Email de l'utilisateur
      * @param password Mot de passe
      * @param quotaTotal
-     * @param isAdmin
+     * //@param isAdmin => backend qui décide
      * @return Le token JWT si succès
      * @throws Exception En cas d'erreur
      */
-    public String register(String email, String password, int quotaTotal, Boolean isAdmin) throws Exception{
+    public String register(String email, String password, int quotaTotal) throws Exception{
         // auth/register
         String registerUrl = baseUrl + "/auth/register";
 
         String registerJson = String.format(
-                "{\"email\":\"%s\",\"password\":\"%s\",\"quota_total\":\"%d\",\"is_admin\":\"%b\"}",
-                email, password, quotaTotal, isAdmin
+                "{\"email\":\"%s\",\"password\":\"%s\",\"quota_total\":\"%d\"}",
+                email, password, quotaTotal
         );
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(registerUrl))
@@ -205,11 +207,13 @@ public class ApiClient {
 
     /**
      * Définir manuellement le token (pour restauration depuis persistance)
+     * stocker authToken en mémoire
      */
     public void setAuthToken(String token) {
         this.authToken = token;
         if (token != null) {
             AppProperties.set("auth.token", token);
+
             String email = JwtUtils.extractEmail(token);
             if (email != null) {
                 AppProperties.set("auth.email", email);
@@ -317,7 +321,7 @@ public class ApiClient {
      * @param file fichier local
      * @param folderId  id du dossier cible (peut être null pour racine si ton backend le gère)
      * @return
-             * @throws Exception
+     * @throws Exception
      */
     public boolean uploadFile(File file, Integer folderId) throws Exception {
         if (file == null || !file.exists()) {
