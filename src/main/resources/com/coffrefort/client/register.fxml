@@ -271,13 +271,23 @@
             <font>
                 <Font size="14.0" />
             </font>
-            <Label fx:id="statusLabel1" text="Prêt" />
+
         </Button>
+        <Label fx:id="statusLabel1"
+               managed="true"
+               visible="true"
+               text=""
+               style="-fx-text-fill: #333333; -fx-font-size: 12px;"
+               GridPane.rowIndex="12">
+            <GridPane.margin>
+                <Insets top="6.0"/>
+            </GridPane.margin>
+        </Label>
 
         <!-- Lien vers connexion -->
         <HBox alignment="CENTER"
               spacing="5.0"
-              GridPane.rowIndex="12">
+              GridPane.rowIndex="13">
             <GridPane.margin>
                 <Insets top="10.0" />
             </GridPane.margin>

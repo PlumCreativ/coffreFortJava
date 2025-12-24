@@ -1,6 +1,7 @@
 package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.ApiClient;
+import com.coffrefort.client.model.Quota;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -110,18 +111,47 @@ public class UploadDialogController {
      */
     @FXML
     private void handleUpload() {
-        if (selectedFiles.isEmpty()) {
-            showErrorMessage("Veuillez sélectionner au moins un fichier.");
-            return;
-        }
 
         if (apiClient == null) {
             showErrorMessage("Erreur interne : ApiClient non initialisé.");
             return;
         }
 
+        if (selectedFiles.isEmpty()) {
+            showErrorMessage("Veuillez sélectionner au moins un fichier.");
+            return;
+        }
+
         if(targetFolderId == null){
             showErrorMessage("Aucun dossier sélectionné pour l'upload.");
+            return;
+        }
+        try{
+            Quota quota = apiClient.getQuota();
+
+            long used = quota.getUsed();
+            long max = quota.getMax();
+
+            long totalUploadSize = selectedFiles.stream().mapToLong(File::length).sum();
+            long remaining = max - used;
+
+            if(remaining <= 0){
+                showErrorMessage("Upload impossible : espace de stockage plein.");
+                return;
+            }
+
+            if(totalUploadSize > remaining){
+                showErrorMessage(
+                        "Espace de stockage insuffisant.\n\n" +
+                            "Espace disponible : " + formatSize(remaining) + "\n" +
+                            "Taille totale des fichiers sélectionnés : " + formatSize(totalUploadSize)
+                );
+                return;
+            }
+
+        } catch (Exception e) {
+            showErrorMessage("Impossible de vérifier le quota.");
+            e.printStackTrace();
             return;
         }
 
@@ -227,6 +257,8 @@ public class UploadDialogController {
         });
 
         new Thread(uploadTask, "upload-task").start();
+
+
     }
 
     /**

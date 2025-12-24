@@ -60,6 +60,13 @@ public class JsonUtils {
         return json.substring(start, i);
     }
 
+    public static String unescapeJsonString(String s) {
+        if (s == null) return null;
+        return s.replace("\\/", "/")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\");
+    }
+
     private JsonUtils() {
         // constructeur privé pour empêcher l'instanciation
     }

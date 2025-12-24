@@ -19,7 +19,7 @@ import java.net.http.HttpResponse;
 import com.coffrefort.client.util.JsonUtils;
 
 
-public class RegisterController extends Application {
+public class RegisterController {
 
     //propriétés
     @FXML private GridPane rootPane;
@@ -126,6 +126,7 @@ public class RegisterController extends Application {
     @FXML
     public void handleRegister(){
 
+        System.out.println("handleRegister() appelé !");
         clearMessages();
 
         // Nettoyer le message d'erreur
@@ -187,8 +188,9 @@ public class RegisterController extends Application {
             statusLabel1.setText("Inscription en cours...");
         }
 
+        //int quotaTotal = 31457280; // 30 Mo par défaut pour tests
         int quotaTotal = 1073741824; //=> 1 giga
-        Boolean isAdmin = false;     //=> pas admin
+        //Boolean isAdmin = false;     //=> pas admin => backend qui décide!!!
 
 
         //Task pour appel HTTP en arrière-plan
@@ -197,7 +199,7 @@ public class RegisterController extends Application {
             protected String call() throws Exception {
 
                 // Appel à ApiClient.register()
-                return apiClient.register(email, password, quotaTotal, isAdmin);
+                return apiClient.register(email, password, quotaTotal);
 
             }
         };
@@ -251,7 +253,8 @@ public class RegisterController extends Application {
                 statusLabel1.setText("");
             }
             if(errorLabel1 != null) {
-                errorLabel1.setText("Erreur pendant l'inscription.");
+                showLabel(errorLabel1, "Erreur pendant l'inscription.");
+
             }
 
             Throwable ex = task.getException();
@@ -308,16 +311,16 @@ public class RegisterController extends Application {
     }
 
     public void showSuccess(String message){
-        successLabel1.setText(message);
+        showLabel(successLabel1, message);
     }
 
 
-    public static void main(String[] args) {
-        launch(args);
-    }
-
-    @Override
-    public void start(Stage primaryStage) {
-
-    }
+//    public static void main(String[] args) {
+//        launch(args);
+//    }
+//
+//    @Override
+//    public void start(Stage primaryStage) {
+//
+//    }
 }

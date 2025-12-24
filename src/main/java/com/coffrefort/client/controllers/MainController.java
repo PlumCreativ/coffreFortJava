@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.Optional;
 import com.coffrefort.client.config.AppProperties;
-import org.w3c.dom.Node;
+import javafx.scene.Node;
 
 public class MainController {
 
@@ -41,6 +41,7 @@ public class MainController {
     private boolean quotaStyleInitialized = false;
     private int quotaStyleRetries = 0;
     private static final int MAX_QUOTA_STYLE_RETRIES = 20;
+    private Quota currentQuota;
 
     @FXML private Label userEmailLabel;
     @FXML private Label statusLabel;
@@ -111,12 +112,15 @@ public class MainController {
         System.out.println("userEmail: " + userEmailLabel.getText());
 
         // pour garantir le styles inline => éviter le  CSS externe
-        // ✅ label bold inline
+        // label bold inline
         quotaLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #333333; -fx-font-size: 12px;");
 
         quotaBar.setStyle("-fx-pref-height: 8px;");
 
         // IMPORTANT : on laisse JavaFX créer la skin, puis on stylise (avec retry)
+        //progressbar => création des noeuds intern .track(fond), .bar(partie remplie)
+
+
         Platform.runLater(this::refreshQuotaBarStyleWithRetry);
 
         // Si la scene arrive / change -> restyle
@@ -269,42 +273,56 @@ public class MainController {
         return menu;
     }
 
-
+    /**
+     * Gestion de comportement de la souris sur le TreeView
+     * clic droit ou clic gauche
+     */
     private void setupTreeViewRootContextMenu(){
         ContextMenu rootMenu = new ContextMenu();
 
         MenuItem createRootFolder = new MenuItem("Nouveau dossier à la racine...");
         createRootFolder.setOnAction(event -> openCreateFolderDialog(null));
+
+        //ajoute le bouton au menu racine
         rootMenu.getItems().addAll(createRootFolder);
 
-
+        //déclenchement que sur clic droit
         treeView.setOnContextMenuRequested(event -> {
 
-            // si la souris est au-dessus d'une TreeCell => menu du dossier
-            TreeCell<?> hoveredCell = (TreeCell<?>) treeView.lookup(".tree-cell:hover");
-            if(hoveredCell != null && hoveredCell.getItem() != null){
-                return; //laisser le menu contextuel du TreeCell à fonctionner
+            //détecter si la souris est sur une TreeCell => récupération du noeud -> texte, icône, cellule...
+            Node node = event.getPickResult().getIntersectedNode();
+
+            while ( node != null && !(node instanceof TreeCell) ) {
+                node = node.getParent();
             }
 
-            //zone vide => affichage le menu racine
+            //clic droit sur un dossier => laisser le menu du dossier
+            if(node instanceof TreeCell<?> cell && cell.getItem() !=null){
+                // on fait rien=> "créer sous-dossier" / "supprimer dossier"
+                return;
+            }
+
+            //sinon -> zone vide => afficher le menu racine
             rootMenu.show(treeView, event.getScreenX(), event.getScreenY());
             event.consume();
+
         });
 
-        //si on fait clic gauche ailleurs => fermer le menu
+        //on clique gauche dans le vide => déselectionne
         treeView.setOnMousePressed(event -> {
-            if(rootMenu.isShowing()){
-                rootMenu.hide();
-            }
+            if (event.isPrimaryButtonDown()) {  // => détection un clic gauche
 
-            if(event.isPrimaryButtonDown()){
-                TreeCell<?> heveredCell = (TreeCell<?>) treeView.lookup(".tree-cell:hover");
-                if(heveredCell == null && heveredCell.getItem() == null){
+                Node node = event.getPickResult().getIntersectedNode();
+                while ( node != null && !(node instanceof TreeCell) ) {
+                    node = node.getParent();
+                }
+
+                if (!(node instanceof TreeCell)){
                     treeView.getSelectionModel().clearSelection();
                     currentFolder = null;
                     fileList.clear();
                     updateFileCount();
-                    statusLabel.setText("Aucun dossier séléctionné");
+                    statusLabel.setText("Aucun dossier séléctioné");
                 }
             }
         });
@@ -474,10 +492,13 @@ public class MainController {
         new Thread(() -> {
             try {
                 Thread.sleep(1000);
-                var quota = apiClient.getQuota();
+                currentQuota = apiClient.getQuota();
+
+                long used = currentQuota.getUsed();
+                long max = currentQuota.getMax();
 
                 Platform.runLater(() -> {
-                    if (quota == null) {
+                    if (currentQuota == null) {
                         quotaBar.setProgress(0.0);
                         quotaLabel.setText("0 B / 0 B");
 
@@ -486,20 +507,33 @@ public class MainController {
                         return;
                     }
 
-                    double ratio = quota.getUsageRatio();
-                    if (ratio < 0) ratio = 0;
-                    if (ratio > 1) ratio = 1;
-
-                    // couleur
-                    if (ratio >= 0.9) quotaColor = "#d9534f"; //rouge
-                    else if (ratio >= 0.8) quotaColor = "#f0ad4e"; //orange
-                    else quotaColor = "#5cb85c"; //vert
+                    double ratio = currentQuota.getUsageRatio();
+//                    if (ratio < 0) ratio = 0;
+//                    if (ratio > 1) ratio = 1;
 
                     // progress
                     quotaBar.setProgress(ratio); // valeur entre 0 et 1
 
                     // texte
-                    quotaLabel.setText(formatSize(quota.getUsed()) + " / " + formatSize(quota.getMax()));
+                    quotaLabel.setText(formatSize(used) + " / " + formatSize(max));
+
+                    // couleur
+                    if (ratio >= 1.0){
+                        quotaColor = "#d9534f"; //rouge
+                        //quotaBar.setStyle("-fx-accent: #d9534f;"); //=>rouge => avec ça ne marche pas!!
+                        statusLabel.setText("Quota atteint — upload bloqué");
+                        uploadButton.setDisable(true);
+                    }
+                    else if (ratio >= 0.8) {
+                        quotaColor = "#f0ad4e"; //orange
+                        //quotaBar.setStyle("-fx-accent: #f0ad4e;"); // => orange => avec ça ne marche pas!!
+                        uploadButton.setDisable(false);
+                    }
+                    else{
+                        quotaColor = "#5cb85c"; //vert
+                        //quotaBar.setStyle("-fx-accent: #5cb85c;"); //=> vert => avec ça ne marche pas!!
+                        uploadButton.setDisable(false);
+                    }
 
                     // restyle (important après setProgress) => pour éviter que JavaFX reconstruite le noeud interne
                     quotaStyleRetries = 0;
@@ -507,6 +541,7 @@ public class MainController {
                 });
 
             } catch (Exception e) {
+                statusLabel.setText("Erreur lors du chargement du quota");
                 e.printStackTrace();
                 Platform.runLater(() -> {
                     quotaBar.setProgress(0.0);
@@ -537,6 +572,12 @@ public class MainController {
      */
     @FXML
     private void handleUpload() {
+
+        if(currentQuota != null && currentQuota.getUsed() >= currentQuota.getMax()){
+            showError("Quota atteint", "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
+            return;
+        }
+
         try{
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/com/coffrefort/client/uploadDialog.fxml")
@@ -561,11 +602,14 @@ public class MainController {
 
             //callback pour rafraîchir après upload
             controller.setOnUploadSuccess(() ->{
+                Platform.runLater(() -> {
+                    if(currentFolder != null){
+                        loadFiles(currentFolder);
+                    }
 
-                if(currentFolder != null){
-                    loadFiles(currentFolder);
-                }
-                statusLabel.setText("Upload terminé");
+                    updateQuota();
+                    statusLabel.setText("Upload terminé");
+                });
             });
 
             dialogStage.showAndWait();
@@ -577,15 +621,101 @@ public class MainController {
     }
 
 
-    // à écrire!!!!
+    /**
+     * Gestion de share des fichiers
+     */
     @FXML
     private void handleShare() {
         FileEntry selected = table.getSelectionModel().getSelectedItem();
         if (selected == null) return;
 
         // TODO: Ouvrir le dialog de partage
-        showInfo("Partage", "Fonctionnalité de partage pour: " + selected.getName());
+//        showInfo("Partage", "Fonctionnalité de partage pour: " + selected.getName());
+
+        shareButton.setDisable(true);
+
+        try{
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/share.fxml")
+            );
+
+            VBox root =  loader.load();
+
+            //récupération du contrôleur
+            ShareController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle(("Créer un lien de partage"));
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(shareButton.getScene().getWindow());
+
+            //interdire de redimensionner  la fenêtre => taille fixe
+            dialogStage.setResizable(false);
+            dialogStage.setScene(new Scene(root));
+
+            controller.setStage(dialogStage);
+            controller.setItemName(selected.getName());
+
+            //callback => quand user clique sur partage
+            controller.setOnShare(recipient -> {
+                statusLabel.setText("Partage en cours ... ");
+
+                new Thread(() -> {
+                    try{
+                        String url  = apiClient.shareFile(selected.getId(), recipient);
+
+                        Platform.runLater(() -> {
+                            Platform.runLater(() -> {
+                                statusLabel.setText("Lien: " + url);
+                                showShareDialog(url);
+
+                            });
+                        });
+                        System.out.println(url);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            showError("Partage", "Erreur " + e.getMessage());
+                            statusLabel.setText("Erreur pendant le partage");
+                        });
+                    }
+                }).start(); //lancement du Thread
+
+            });
+
+            //réactivation du bouton de partage
+            dialogStage.setOnHidden(event -> shareButton.setDisable(false));
+
+            dialogStage.showAndWait();
+
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Erreur", "Impossible d'ouvrir la fenêtre de partage "+e.getMessage());
+            shareButton.setDisable(false);
+        }
     }
+
+
+    /**
+     * Afficher URL
+     * @param url
+     */
+    private void showShareDialog(String url){
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Partage réusssi");
+        alert.setHeaderText("Lien de partage généré");
+
+        TextArea area = new TextArea(url);
+        area.setEditable(false);
+        area.setWrapText(true);
+        area.setPrefRowCount(3);
+
+        alert.getDialogPane().setContent(area);
+        alert.showAndWait();
+    }
+
 
     /**
      * supprimer des fichiers
@@ -694,8 +824,15 @@ public class MainController {
         // définir le nom => par défaut
         chooser.setInitialFileName(file.getName());
 
-        //au cas ou pour définir un filtre par extension
-        // chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tous les fichiers", "*.*"));
+        //pour définir un filtre par extension
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("PDF", "*.pdf"),
+                new FileChooser.ExtensionFilter("Images (*.jpg, *.jpeg, *.png, *.webp)", "*.jpg", "*.jpeg", "*.png", "*.webp"),
+                new FileChooser.ExtensionFilter("Documents Word (*.doc, *.docx)", "*.doc", "*.docx"),
+                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*"));
+
+        //filtre séléctionné par défaut
+        chooser.setSelectedExtensionFilter(chooser.getExtensionFilters().get(0));
 
         File target = chooser.showSaveDialog(table.getScene().getWindow());
         if (target == null){
@@ -730,7 +867,8 @@ public class MainController {
      */
     @FXML
     private void handleNewFolder() {
-        openCreateFolderDialog(currentFolder); // currentFolder peut être null => racine
+//        openCreateFolderDialog(currentFolder); // currentFolder peut être null => racine
+        openCreateFolderDialog(null); //=> à la racine!!!
     }
 
     /**

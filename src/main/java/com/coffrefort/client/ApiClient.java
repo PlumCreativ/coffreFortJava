@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -55,6 +56,8 @@ public class ApiClient {
      */
     public String login(String email, String password) throws Exception {
         String url = baseUrl + "/auth/login";
+
+
 
         // Construction du body JSON
         String jsonBody = String.format(
@@ -110,17 +113,17 @@ public class ApiClient {
      * @param email Email de l'utilisateur
      * @param password Mot de passe
      * @param quotaTotal
-     * @param isAdmin
+     * //@param isAdmin => backend qui décide
      * @return Le token JWT si succès
      * @throws Exception En cas d'erreur
      */
-    public String register(String email, String password, int quotaTotal, Boolean isAdmin) throws Exception{
+    public String register(String email, String password, int quotaTotal) throws Exception{
         // auth/register
         String registerUrl = baseUrl + "/auth/register";
 
         String registerJson = String.format(
-                "{\"email\":\"%s\",\"password\":\"%s\",\"quota_total\":\"%d\",\"is_admin\":\"%b\"}",
-                email, password, quotaTotal, isAdmin
+                "{\"email\":\"%s\",\"password\":\"%s\",\"quota_total\":\"%d\"}",
+                email, password, quotaTotal
         );
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(registerUrl))
@@ -204,11 +207,13 @@ public class ApiClient {
 
     /**
      * Définir manuellement le token (pour restauration depuis persistance)
+     * stocker authToken en mémoire
      */
     public void setAuthToken(String token) {
         this.authToken = token;
         if (token != null) {
             AppProperties.set("auth.token", token);
+
             String email = JwtUtils.extractEmail(token);
             if (email != null) {
                 AppProperties.set("auth.email", email);
@@ -305,7 +310,7 @@ public class ApiClient {
      * @throws Exception
      */
     public boolean uploadFile(File file) throws Exception{
-        //s'il n'y a pas dossier => on passe null
+        //s'il n'y a pas dossier => passer en null
         return uploadFile(file, null);
     }
 
@@ -316,7 +321,7 @@ public class ApiClient {
      * @param file fichier local
      * @param folderId  id du dossier cible (peut être null pour racine si ton backend le gère)
      * @return
-             * @throws Exception
+     * @throws Exception
      */
     public boolean uploadFile(File file, Integer folderId) throws Exception {
         if (file == null || !file.exists()) {
@@ -605,6 +610,78 @@ public class ApiClient {
         return false;
 
     }
+
+
+    /**
+     * Création de lien de partage
+     * @param id
+     * @param recipient
+     * @return
+     * @throws Exception
+     */
+    public String shareFile(int id, String recipient) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(id <= 0) {
+            throw new IllegalArgumentException("id invalide");
+        }
+
+        //pour l'instant expire dans 7 jours!!!
+        String expiresAt =  Instant.now().plus(7, ChronoUnit.DAYS).toString();
+
+        String safeRecipient = (recipient == null) ? "" : recipient.trim();
+        String label = safeRecipient.isBlank()
+                ? "Partage fichier #" + id
+                : "Partage fichier #" + id + " avec " + safeRecipient;
+
+        String jsonBody = "{"
+                + "\"kind\":\"file\","
+                + "\"target_id\":" + id + ","
+                + "\"label\":\"" + escapeJson(label) + "\","
+                + "\"max_uses\":2,"
+                + "\"expires_at\":\"" + expiresAt + "\""
+                + "}";
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/shares"))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+
+        if(status == 201){
+
+            //extraire url du backend
+            String url = JsonUtils.extractJsonField(body, "url");
+            url = JsonUtils.unescapeJsonString(url);
+
+            if(url == null || url.isBlank()){
+
+                //renvoyer body pour le debug
+                return body;
+            }
+            return url;
+        }
+
+        String error = JsonUtils.extractJsonField(body, "error");
+        if(error == null || error.isEmpty()){
+            error = body;
+        }
+
+        throw new RuntimeException("Erreur de partage: HTTP " + status + "): " + error);
+
+    }
+
 
     /**
      * supprimer un dossier choisi

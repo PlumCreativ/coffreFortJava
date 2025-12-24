@@ -55,7 +55,7 @@ public class LoginController {
     @FXML //=> il faut qu'il soit lier avec le .fxml!!
     private void initialize(){
 
-        //on clique sur la scèe => retirer le focus du champs
+        //on clique sur la scène => retirer le focus du champs
         rootPane.setOnMouseClicked(event -> {
             if(event.getTarget() != emailField && event.getTarget() != passwordField && event.getTarget() != passwordVisibleField){
                 rootPane.requestFocus();
@@ -86,11 +86,11 @@ public class LoginController {
     private void handleToggleShowPassword(){
         if(loginSelectShowPassword.isSelected()){
 
-            //afficher le mot de passe
+            //afficher le mdp en clair
             passwordVisibleField.setVisible(true);
             passwordVisibleField.setManaged(true);
 
-            //cacher le password
+            //cacher le mdp masqué
             passwordField.setVisible(false);
             passwordField.setManaged(false);
 
@@ -98,11 +98,11 @@ public class LoginController {
             passwordVisibleField.requestFocus();
             passwordVisibleField.positionCaret(passwordVisibleField.getText().length());
         }else{
-            //cacher le mot de passe
+            //afficher le mdp caché
             passwordField.setVisible(true);
             passwordField.setManaged(true);
 
-            //cacher le champ de texte
+            //cacher le mdp en clair
             passwordVisibleField.setVisible(false);
             passwordVisibleField.setManaged(false);
 
@@ -133,8 +133,13 @@ public class LoginController {
             return;
         }
 
+        if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            errorLabel.setText("Format d'email invalide.");
+            return;
+        }
+
         if(loginSelectShowPassword.isSelected()){
-            errorLabel.setText("Veuillez masquer le mot de passe avant de vous inscrire.");
+            errorLabel.setText("Veuillez masquer le mot de passe avant de vous connecter.");
             return;
         }
 
@@ -169,6 +174,7 @@ public class LoginController {
                     stage.setTitle("CryptoVault - Accueil");
                     stage.show();
                 } catch (IOException e) {
+                    errorLabel.setText("Erreur de chargement de l'application.");
                     e.printStackTrace();
                 }
             } else {
@@ -177,11 +183,24 @@ public class LoginController {
             }
         });
 
+
         task.setOnFailed(event -> {
             connexionButton.setDisable(false);
             statusLabel.setText("");
-            errorLabel.setText("Erreur de connexion au serveur.");
-            task.getException().printStackTrace();
+
+            Throwable exception = task.getException();
+
+            //erreur métier venant de l'API
+            if (exception.getCause() instanceof ApiClient.AuthenticationException authEx) {
+                errorLabel.setText(authEx.getMessage());
+            }else if (exception.getCause() instanceof ApiClient.RegistrationException regEx) {
+                errorLabel.setText(regEx.getMessage());
+            }else if (exception.getCause() instanceof java.net.ConnectException) { //=> Problème réseau / serveur
+                errorLabel.setText("Impossible de joindre le serveur.");
+            }else {
+                errorLabel.setText("Erreur technique inattendue.");
+                exception.printStackTrace();
+            }
         });
 
         new Thread(task).start();
@@ -197,9 +216,6 @@ public class LoginController {
             onGoToRegister.run();   // App.java ouvrira register.fxml
         }
     }
-
-
-
 
 
 }
