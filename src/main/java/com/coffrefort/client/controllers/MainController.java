@@ -937,8 +937,38 @@ public class MainController {
     // à écrire!!!!
     @FXML
     private void handleOpenShares() {
-        // TODO: Ouvrir la fenêtre des partages
-        showInfo("Mes partages", "Fonctionnalité à venir");
+//        // TODO: Ouvrir la fenêtre des partages
+//        showInfo("Mes partages", "Fonctionnalité à venir");
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/myshares.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            MySharesController controller = loader.getController();
+
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Mes partages");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(treeView.getScene().getWindow());
+            dialogStage.setScene(new Scene(root));
+            dialogStage.setResizable(false);
+
+            controller.setApiClient(apiClient);
+            controller.setStage(dialogStage);
+
+            dialogStage.showAndWait();
+
+        }catch (Exception e){
+            System.err.println("Erreur lors du chargement de myshares.fxml");
+            e.printStackTrace();
+            showError("Erreur", "Impossible d'ouvrir la fenêtre de Mes partages: " + e.getMessage());
+        }
+
     }
 
     /**

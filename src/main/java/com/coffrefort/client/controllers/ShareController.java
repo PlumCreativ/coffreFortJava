@@ -15,6 +15,9 @@ public class ShareController {
     @FXML private Label errorLabel;
     @FXML private Button cancelButton;
 
+    @FXML private TextField expiresField;
+    @FXML private TextField maxUsesField;
+
     private Stage stage;
 
     // Callback appelé si l'utilisateur valide (destinataire)
@@ -55,9 +58,32 @@ public class ShareController {
 
         hideError();
 
-        // Appel du callback si défini
+        int maxUses = 2; // => valeur par défaut
+        try {
+            String maxUsesText = maxUsesField.getText();
+            if(maxUsesText != null && !maxUsesText.isBlank()) {
+                maxUses = Integer.parseInt(maxUsesText.trim());
+            }
+        } catch (NumberFormatException e) {
+            showError("Max uses invalide");
+            return;
+        }
+
+        int expiresDays = 7; // => valeur par défaut
+
+        try {
+            String expiresText = expiresField.getText();
+            if(expiresText != null && !expiresText.isBlank()){
+                expiresDays = Integer.parseInt(expiresText.trim());
+            }
+        }catch(NumberFormatException e){
+            showError("Expiration invalide");
+            return;
+        }
+
+        // Appel du callback avec destinataire, masUses, expiresDays
         if (onShare != null) {
-            onShare.accept(recipient);
+            onShare.accept(recipient + "|" + maxUses + "|" + expiresDays);
         }
 
         // Ferme le dialogue après validation

@@ -58,8 +58,32 @@
             <TextField fx:id="recipientField" promptText="ex: alice@domaine.com" style="-fx-background-radius: 6; -fx-padding: 8 10; -fx-border-radius: 6; -fx-border-color: #C8C8C8;" />
         </VBox>
 
-        <!-- Choix des droits -->
-        <VBox spacing="6" />
+        <!-- Choix des options : expiration et max_uses -->
+        <HBox spacing="12">
+
+            <VBox spacing="6" HBox.hgrow="ALWAYS">
+                <Label
+                        style="-fx-text-fill: #333333; -fx-font-size: 12px; -fx-font-weight: bold;"
+                        text="Expiration (jours)" />
+                <TextField
+                        fx:id="expiresField"
+                        promptText="ex: 7"
+                        style="-fx-background-radius: 6; -fx-padding: 8 10;
+                   -fx-border-radius: 6; -fx-border-color: #C8C8C8;" />
+            </VBox>
+
+            <VBox spacing="6" HBox.hgrow="ALWAYS">
+                <Label
+                        style="-fx-text-fill: #333333; -fx-font-size: 12px; -fx-font-weight: bold;"
+                        text="Nombre maximum d'utilisations" />
+                <TextField
+                        fx:id="maxUsesField"
+                        promptText="ex: 3"
+                        style="-fx-background-radius: 6; -fx-padding: 8 10;
+                   -fx-border-radius: 6; -fx-border-color: #C8C8C8;" />
+            </VBox>
+
+        </HBox>
 
         <Label fx:id="errorLabel" managed="false" style="-fx-text-fill: #980b0b; -fx-font-size: 12px; -fx-font-weight: bold;" text="" visible="false" wrapText="true" />
     </VBox>
