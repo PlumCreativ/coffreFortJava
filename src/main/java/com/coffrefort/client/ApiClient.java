@@ -4,6 +4,7 @@ import com.coffrefort.client.config.AppProperties;
 import com.coffrefort.client.model.FileEntry;
 import com.coffrefort.client.model.NodeItem;
 import com.coffrefort.client.model.Quota;
+import com.coffrefort.client.model.ShareItem;
 import com.coffrefort.client.util.JsonUtils;
 import com.coffrefort.client.util.JwtUtils;
 
@@ -56,8 +57,6 @@ public class ApiClient {
      */
     public String login(String email, String password) throws Exception {
         String url = baseUrl + "/auth/login";
-
-
 
         // Construction du body JSON
         String jsonBody = String.format(
@@ -315,7 +314,6 @@ public class ApiClient {
     }
 
 
-
     /**
      * * uploader un ou des fichier(s)
      * @param file fichier local
@@ -372,9 +370,9 @@ public class ApiClient {
             }
             throw new Exception(apiError);
         }
-
         return true;
     }
+
 
      /**
      * @param file
@@ -392,7 +390,7 @@ public class ApiClient {
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
-        // ---- Part "folder_id" (si fourni)
+        // ---- Partie "folder_id" (si fourni)
         if (folderId != null) {
             String folderPart =
                     "--" + boundary + CRLF +
@@ -402,7 +400,7 @@ public class ApiClient {
             output.write(folderPart.getBytes(StandardCharsets.UTF_8));
         }
 
-        // ---- Part "file"
+        // ---- Partie "file"
         String filePartHeader =
                 "--" + boundary + CRLF +
                         "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + CRLF +
@@ -494,8 +492,6 @@ public class ApiClient {
     }
 
 
-
-
     /**
      * Déconnexion - Supprime le token
      */
@@ -556,7 +552,6 @@ public class ApiClient {
         String usedStr = JsonUtils.extractJsonNumberField(body, "used_bytes");
         String totalStr = JsonUtils.extractJsonNumberField(body, "total_bytes");
 
-
         long used = (usedStr != null && !usedStr.isEmpty()) ? Long.parseLong(usedStr) : 0;
         long total = (totalStr != null && !totalStr.isEmpty()) ? Long.parseLong(totalStr) : 0;
 
@@ -581,6 +576,12 @@ public class ApiClient {
         }
     }
 
+    /**
+     * supprimer le fichier choisi
+     * @param id
+     * @return
+     * @throws Exception
+     */
     public Boolean deleteFile(int id) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
@@ -608,77 +609,6 @@ public class ApiClient {
         }
         System.out.println("Erreur pendant la suppression du fichier. Status=" + status + " body=" + response.body());
         return false;
-
-    }
-
-
-    /**
-     * Création de lien de partage
-     * @param id
-     * @param recipient
-     * @return
-     * @throws Exception
-     */
-    public String shareFile(int id, String recipient) throws Exception {
-        if(authToken == null || authToken.isEmpty()) {
-            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
-        }
-
-        if(id <= 0) {
-            throw new IllegalArgumentException("id invalide");
-        }
-
-        //pour l'instant expire dans 7 jours!!!
-        String expiresAt =  Instant.now().plus(7, ChronoUnit.DAYS).toString();
-
-        String safeRecipient = (recipient == null) ? "" : recipient.trim();
-        String label = safeRecipient.isBlank()
-                ? "Partage fichier #" + id
-                : "Partage fichier #" + id + " avec " + safeRecipient;
-
-        String jsonBody = "{"
-                + "\"kind\":\"file\","
-                + "\"target_id\":" + id + ","
-                + "\"label\":\"" + escapeJson(label) + "\","
-                + "\"max_uses\":2,"
-                + "\"expires_at\":\"" + expiresAt + "\""
-                + "}";
-
-        // Construction de la requête HTTP
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/shares"))
-                .header("Accept", "application/json")
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + authToken)
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
-                .build();
-
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-        int status = response.statusCode();
-        String body = response.body();
-
-
-        if(status == 201){
-
-            //extraire url du backend
-            String url = JsonUtils.extractJsonField(body, "url");
-            url = JsonUtils.unescapeJsonString(url);
-
-            if(url == null || url.isBlank()){
-
-                //renvoyer body pour le debug
-                return body;
-            }
-            return url;
-        }
-
-        String error = JsonUtils.extractJsonField(body, "error");
-        if(error == null || error.isEmpty()){
-            error = body;
-        }
-
-        throw new RuntimeException("Erreur de partage: HTTP " + status + "): " + error);
 
     }
 
@@ -754,7 +684,6 @@ public class ApiClient {
         }
 
     }
-
 
 
     //méthodes private
@@ -914,10 +843,240 @@ public class ApiClient {
             }
 
             result.add(FileEntry.of(id, name, size, date));
-
         }
         return result;
     }
+
+
+    /**
+     * Création de lien de partage
+     * @param id
+     * @param recipient
+     * @return
+     * @throws Exception
+     */
+    public String shareFile(int id, String recipient) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(id <= 0) {
+            throw new IllegalArgumentException("id invalide");
+        }
+
+        //découper => destinataire|maxUses|expiresDays
+        String[] parts = recipient.split("\\|");
+        String destinataire = parts[0];
+        int maxUses = Integer.parseInt(parts[1]);
+        int expiresDays = Integer.parseInt(parts[2]);
+
+
+        //calculer la date d'expiration
+        String expiresAt =  Instant.now().plus(expiresDays, ChronoUnit.DAYS).toString();
+
+        String label = "Partage fichier #" + id + " avec " + destinataire;
+
+        String jsonBody = "{"
+                + "\"kind\":\"file\","
+                + "\"target_id\":" + id + ","
+                + "\"label\":\"" + escapeJson(label) + "\","
+                + "\"max_uses\":" + maxUses + ","
+                + "\"expires_at\":\"" + expiresAt + "\""
+                + "}";
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/shares"))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        if(status == 201){
+
+            //extraire url du backend
+            String url = JsonUtils.extractJsonField(body, "url");
+            url = JsonUtils.unescapeJsonString(url);
+
+            if(url == null || url.isBlank()){
+
+                //renvoyer body pour le debug
+                return body;
+            }
+            return url;
+        }
+
+        String error = JsonUtils.extractJsonField(body, "error");
+        if(error == null || error.isEmpty()){
+            error = body;
+        }
+
+        throw new RuntimeException("Erreur de partage: (HTTP " + status + "): " + error);
+    }
+
+    /**
+     * lister les partages
+     * @return
+     * @throws Exception
+     */
+    public List<ShareItem> listShares() throws Exception {
+
+        System.out.println("ApiClient - listShares() démarrage...");
+        System.out.println("ApiClient - URL: " + baseUrl + "/shares");
+        System.out.println("ApiClient - Token: " + (authToken != null ? "présent" : "absent"));
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/shares"))
+                .header("Accept", "application/json")
+                //.header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        System.out.println("ApiClient - Code de statut HTTP: " + status);
+        System.out.println("ApiClient - Corps de la réponse: " + response.body());
+
+        if(status != 200){
+            throw new RuntimeException("Erreur de partage: (HTTP " + status + "): " + response.body());
+        }
+
+        // Parser JSON en List<ShareItem>
+        List<ShareItem> shares = JsonUtils.parseShareItem(response.body());
+        System.out.println("ApiClient - Nombre de partages parsés: " + shares.size());
+
+        return shares;
+    }
+
+    /**
+     * révoquer une partage
+     * @param id
+     * @throws Exception
+     */
+    public void revokeShare(int id) throws Exception {
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/shares/" + id + "/revoke"))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+
+        if(status != 200){
+            throw new RuntimeException("Erreur de partage: (HTTP " + status + "): " + response.statusCode());
+        }
+    }
+
+    /**
+     * renommer un dossier
+     * @param folderId
+     * @param newName
+     * @throws Exception
+     */
+    public void renameFolder(int folderId, String newName) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant)."); //=> état de l'objet invalide
+        }
+
+        if(folderId <= 0){
+            throw new IllegalArgumentException("FolderId invalide " + folderId); //=> argument mauvais
+        }
+
+        if(newName == null || newName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le nom ne peut pas être vide");
+        }
+
+        String jsonBody = "{"
+                + "\"name\":\"" + escapeJson(newName.trim()) + "\""
+                + "}";
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/folders/" + folderId))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        if(status == 200 || status == 204) return;
+
+        String error = JsonUtils.extractJsonField(body, "error");
+        if(error == null || error.isEmpty()){
+            error = body;
+        }
+
+        throw new RuntimeException("Erreur de renameFolder: (HTTP " + status + "): " + error);
+    }
+
+    /**
+     * renommer un fichier
+     * @param fileId
+     * @param newName
+     * @throws Exception
+     */
+    public void renameFile(int fileId, String newName) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(fileId <= 0){
+            throw new IllegalArgumentException("FileId invalide " + fileId);
+        }
+
+        if(newName == null || newName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Le nom ne peut pas être vide");
+        }
+
+        String jsonBody = "{"
+                + "\"name\":\"" + escapeJson(newName.trim()) + "\""
+                + "}";
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/files/" + fileId))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        if(status == 200 || status == 204) return;
+
+        String error = JsonUtils.extractJsonField(body, "error");
+        if(error == null || error.isEmpty()){
+            error = body;
+        }
+
+        throw new RuntimeException("Erreur de renameFile: (HTTP " + status + "): " + error);
+    }
+
+
 
 
 
