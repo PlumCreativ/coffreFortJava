@@ -23,7 +23,9 @@ import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.Optional;
+
 import com.coffrefort.client.config.AppProperties;
+import com.coffrefort.client.util.UIDialogs;
 import javafx.scene.Node;
 
 public class MainController {
@@ -120,7 +122,6 @@ public class MainController {
         // IMPORTANT : on laisse JavaFX créer la skin, puis on stylise (avec retry)
         //progressbar => création des noeuds intern .track(fond), .bar(partie remplie)
 
-
         Platform.runLater(this::refreshQuotaBarStyleWithRetry);
 
         // Si la scene arrive / change -> restyle
@@ -142,7 +143,7 @@ public class MainController {
             Platform.runLater(this::refreshQuotaBarStyle);
         });
 
-        // ✅ premier passage
+        // premier passage
         Platform.runLater(() -> {
             initQuotaBarStyleOnce();
             refreshQuotaBarStyle();
@@ -157,8 +158,6 @@ public class MainController {
     private void setupTable() {
         // Configuration des colonnes
         nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
-
-
         sizeCol.setCellValueFactory(new PropertyValueFactory<>("formattedSize"));
         dateCol.setCellValueFactory(new PropertyValueFactory<>("updatedAtFormatted"));
 
@@ -180,20 +179,49 @@ public class MainController {
             }
         });
 
-        // Double-clic pour télécharger => pour plus tard
-//        table.setOnMouseClicked(event -> {
-//            if (event.getClickCount() == 2) {
-//                FileEntry selected = table.getSelectionModel().getSelectedItem();
-//                if (selected != null) {
-//                    handleDownload(selected);
-//                }
-//            }
-//        });
-
-        //double cliq sur une ligne
+        //double clique sur une ligne
         table.setRowFactory(tv -> {
             TableRow<FileEntry> row = new TableRow<>();
 
+            //menu contextuel par ligne
+            ContextMenu contextMenu = new ContextMenu();
+
+            MenuItem renameItem = new MenuItem("Renommer ce fichier...");
+            renameItem.setOnAction(e -> {
+                FileEntry file = row.getItem();
+                if (file != null) {
+                    openRenameFileDialog(file);
+                }
+            });
+
+//            au cas ou pour plus tard, si je veux changer...
+//            MenuItem downloadItem = new MenuItem("Télécharger");
+//            downloadItem.setOnAction(e -> {
+//                FileEntry file = row.getItem();
+//                if (file != null) {
+//                    handleDownload(file);
+//                }
+//            });
+//
+//            MenuItem deleteItem = new MenuItem("Supprimer...");
+//            deleteItem.setOnAction(e -> {
+//                FileEntry file = row.getItem();
+//                if (file != null) {
+//                    table.getSelectionModel().select(file);
+//                    handleDelete(); // réutilise ton flow confirmDelete.fxml
+//                }
+//            });
+
+            contextMenu.getItems().addAll(renameItem);
+
+            //affichage le menu => que si la ligne n'est pas vide
+            row.contextMenuProperty().bind(
+                    javafx.beans.binding.Bindings.when(row.emptyProperty())
+                            .then((ContextMenu)null)
+                            .otherwise(contextMenu)
+            );
+
+            //download en double cliquant dessus
             row.setOnMouseClicked(event -> {
                 if(event.getClickCount() ==2 && !row.isEmpty()){
                     FileEntry selected = row.getItem();
@@ -202,7 +230,6 @@ public class MainController {
             });
             return row;
         });
-
     }
 
 
@@ -230,7 +257,6 @@ public class MainController {
                         if (item.getId() == 0) {
                             setContextMenu(null);
                         } else {
-
                             // afficher le menu au clique droite => setContextMenu()
                             // rendre le clique droit active
                             setContextMenu(createFolderContextMenu(this));
@@ -242,6 +268,7 @@ public class MainController {
         });
     }
 
+
     /**
      * création du menu contextuel pour un dossier donné
      * @param cell
@@ -250,12 +277,19 @@ public class MainController {
     private ContextMenu createFolderContextMenu(TreeCell<NodeItem>  cell){
         ContextMenu menu = new ContextMenu();
 
-
         MenuItem createInside = new MenuItem("Nouveau dossier ici...");
         createInside.setOnAction(event -> {
             NodeItem folder = cell.getItem();
             if (folder != null){
                 openCreateFolderDialog(folder); // => parent = dossier cliqué
+            }
+        });
+
+        MenuItem renameItem = new MenuItem("Renommer ce dossier");
+        renameItem.setOnAction(event -> {
+            NodeItem folder = cell.getItem();
+            if (folder != null){
+                openRenameFolderDialog(folder);
             }
         });
 
@@ -269,9 +303,10 @@ public class MainController {
             }
         });
 
-        menu.getItems().addAll(createInside, new SeparatorMenuItem(), deleteItem);
+        menu.getItems().addAll(createInside, renameItem, new SeparatorMenuItem(), deleteItem);
         return menu;
     }
+
 
     /**
      * Gestion de comportement de la souris sur le TreeView
@@ -346,8 +381,6 @@ public class MainController {
 //                    Sélectionner le premier dossier si disponible
 //                    il ne faut plus séléctionner automatiquement le premier dossier!!
 //                    if (!rootItem.getChildren().isEmpty()) {
-//
-//
 //                        TreeItem<NodeItem> first = rootItem.getChildren().get(0);
 //                        treeView.getSelectionModel().select(first);
 //                        currentFolder = first.getValue();
@@ -355,7 +388,6 @@ public class MainController {
 //                        // charge les fichiers du 1er dossier
 //                        loadFiles(currentFolder);
 //                    }
-
 
                     treeView.getSelectionModel().clearSelection();
                     currentFolder = null;
@@ -368,7 +400,6 @@ public class MainController {
 
                 // Charger les quotas avec endpoint
                 //updateQuota();
-
 //                Platform.runLater(() -> {
 //                    statusLabel.setText("Données chargées");
 //                });
@@ -377,7 +408,7 @@ public class MainController {
                 e.printStackTrace();
 
                 Platform.runLater(() -> {
-                    showError("Erreur de chargement", "Impossible de charger les données: " + e.getMessage());
+                    UIDialogs.showError("Erreur de chargement", "Impossible de charger les données: " + e.getMessage());
                     statusLabel.setText("Erreur de chargement");
                 });
             }
@@ -398,7 +429,6 @@ public class MainController {
         for (NodeItem child : node.getChildren()) {
             item.getChildren().add(buildTree(child));
         }
-
         return item;
     }
 
@@ -429,13 +459,14 @@ public class MainController {
             }catch(Exception e){
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    showError("Erreur", "Impossible de charger les fichiers: " + e.getMessage());
+                    UIDialogs.showError("Erreur", "Impossible de charger les fichiers: " + e.getMessage());
                     statusLabel.setText("Erreur de chargement des fichiers");
                 });
             }
         }).start();
     }
 
+// *****************************************   functions pour le quota   ****************************************
     private void initQuotaBarStyleOnce() {
         if (quotaStyleInitialized) return;
         quotaStyleInitialized = true;
@@ -481,7 +512,6 @@ public class MainController {
                         "-fx-background-radius: 4px;" +
                         "-fx-background-insets: 0;"
         );
-
         return true;
     }
 
@@ -563,7 +593,6 @@ public class MainController {
         if (fileCountLabel != null) {
             fileCountLabel.setText(count + " fichier" + (count > 1 ? "s" : ""));
         }
-
     }
 
 
@@ -574,7 +603,7 @@ public class MainController {
     private void handleUpload() {
 
         if(currentQuota != null && currentQuota.getUsed() >= currentQuota.getMax()){
-            showError("Quota atteint", "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
+            UIDialogs.showError("Quota atteint", "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
             return;
         }
 
@@ -616,7 +645,7 @@ public class MainController {
 
         }catch(Exception e){
             e.printStackTrace();
-            showError("Erreur", "Impossible d'ouvrir la fenêtre d'upload "+e.getMessage());
+            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre d'upload "+e.getMessage());
         }
     }
 
@@ -628,9 +657,6 @@ public class MainController {
     private void handleShare() {
         FileEntry selected = table.getSelectionModel().getSelectedItem();
         if (selected == null) return;
-
-        // TODO: Ouvrir le dialog de partage
-//        showInfo("Partage", "Fonctionnalité de partage pour: " + selected.getName());
 
         shareButton.setDisable(true);
 
@@ -675,7 +701,7 @@ public class MainController {
                     } catch (Exception e) {
                         e.printStackTrace();
                         Platform.runLater(() -> {
-                            showError("Partage", "Erreur " + e.getMessage());
+                            UIDialogs.showError("Partage", "Erreur " + e.getMessage());
                             statusLabel.setText("Erreur pendant le partage");
                         });
                     }
@@ -688,11 +714,9 @@ public class MainController {
 
             dialogStage.showAndWait();
 
-
-
         } catch (Exception e) {
             e.printStackTrace();
-            showError("Erreur", "Impossible d'ouvrir la fenêtre de partage "+e.getMessage());
+            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de partage "+e.getMessage());
             shareButton.setDisable(false);
         }
     }
@@ -712,7 +736,33 @@ public class MainController {
         area.setWrapText(true);
         area.setPrefRowCount(3);
 
-        alert.getDialogPane().setContent(area);
+        //Remplacer l'icône par un "i" bordeaux
+        Label icon = new Label("i");
+        icon.setStyle(
+                "-fx-background-color: #980b0b;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-alignment: center;" +
+                        "-fx-min-width: 28px;" +
+                        "-fx-min-height: 28px;" +
+                        "-fx-background-radius: 11px;" +
+                        "-fx-font-size: 14px;"
+        );
+        alert.setGraphic(icon);
+
+        DialogPane pane = alert.getDialogPane();
+        pane.setContent(area);
+
+        // Bouton OK
+        Button okBtn = (Button) pane.lookupButton(ButtonType.OK);
+        if (okBtn != null) {
+            okBtn.setStyle(
+                    "-fx-background-color: #980b0b;" +
+                            "-fx-text-fill: white;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-cursor: hand;"
+            );
+        }
         alert.showAndWait();
     }
 
@@ -754,7 +804,7 @@ public class MainController {
         } catch (Exception e){
             System.err.println("Erreur lors du chargement de confirmDelete.fxml");
             e.printStackTrace();
-            showError("Erreur", "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
+            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
         } finally {
             deleteButton.setDisable(false);
         }
@@ -792,13 +842,13 @@ public class MainController {
 
                         statusLabel.setText("Fichier supprimé: " + file.getName());
                     } else {
-                        showError("Erreur", "Impossible de supprimer le fichier.");
+                        UIDialogs.showError("Erreur", "Impossible de supprimer le fichier.");
                         statusLabel.setText("Erreur de suppression");
                     }
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    showError("Erreur", "Erreur: " + e.getMessage());
+                    UIDialogs.showError("Erreur", "Erreur: " + e.getMessage());
                     statusLabel.setText("Erreur de suppression");
                 });
             }
@@ -810,9 +860,6 @@ public class MainController {
      * @param file
      */
     private void handleDownload(FileEntry file) {
-//        statusLabel.setText("Téléchargement: " + file.getName());
-//        // TODO: Implémenter le téléchargement
-//        showInfo("Téléchargement", "Téléchargement de: " + file.getName());
 
         if(file == null) return;
 
@@ -853,10 +900,9 @@ public class MainController {
             }catch (Exception e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    showError("Téléchargement", "Impossible de télécharger: " + e.getMessage());
+                    UIDialogs.showError("Téléchargement", "Impossible de télécharger: " + e.getMessage());
                     statusLabel.setText("Erreur de téléchargement");
                 });
-
             }
         }).start();
 
@@ -887,13 +933,13 @@ public class MainController {
                         loadData(); // Recharger l'arborescence
                         statusLabel.setText("Dossier créé: " + name);
                     } else {
-                        showError("Erreur", "Impossible de créer le dossier.");
+                        UIDialogs.showError("Erreur", "Impossible de créer le dossier.");
                         statusLabel.setText("Erreur de création");
                     }
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    showError("Erreur", "Erreur: " + e.getMessage());
+                    UIDialogs.showError("Erreur", "Erreur: " + e.getMessage());
                     statusLabel.setText("Erreur de création");
                 });
             }
@@ -930,15 +976,15 @@ public class MainController {
         }catch (Exception e){
             System.err.println("Erreur lors du chargement de createFolder.fxml");
             e.printStackTrace();
-            showError("Erreur", "Impossible d'ouvrir la fenêtre de création: " + e.getMessage());
+            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de création: " + e.getMessage());
         }
     }
 
-    // à écrire!!!!
+    /**
+     * gestion de "Mes partages"
+     */
     @FXML
     private void handleOpenShares() {
-//        // TODO: Ouvrir la fenêtre des partages
-//        showInfo("Mes partages", "Fonctionnalité à venir");
 
         try {
             FXMLLoader loader = new FXMLLoader(
@@ -966,7 +1012,7 @@ public class MainController {
         }catch (Exception e){
             System.err.println("Erreur lors du chargement de myshares.fxml");
             e.printStackTrace();
-            showError("Erreur", "Impossible d'ouvrir la fenêtre de Mes partages: " + e.getMessage());
+            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de Mes partages: " + e.getMessage());
         }
 
     }
@@ -977,11 +1023,6 @@ public class MainController {
      * @param treeItem
      */
     private void handleDeleteFolder(NodeItem folder, TreeItem<NodeItem> treeItem){
-
-//        Alert confirm =  new Alert(Alert.AlertType.CONFIRMATION);
-//        confirm.setTitle("Supprimer le dossier");
-//        confirm.setHeaderText("Supprimer le dossier \"" + folder.getName() + "\" ?");
-//        confirm.setContentText("Tous les fichiers et sous-dossiers de ce dossier seront supprimer.");
 
         try {
             FXMLLoader loader = new FXMLLoader(
@@ -1011,7 +1052,7 @@ public class MainController {
         } catch (Exception e){
             System.err.println("Erreur lors du chargement de confirmDeleteFolder.fxml");
             e.printStackTrace();
-            showError("Erreur", "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
+            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
         }
 
 //        Optional<ButtonType> result = confirm.showAndWait();
@@ -1050,14 +1091,14 @@ public class MainController {
 
                         statusLabel.setText("Dossier supprimé: " + folder.getName());
                     }else{
-                        showError("Erreur", "Impossible de supprimer le dossier.");
+                        UIDialogs.showError("Erreur", "Impossible de supprimer le dossier.");
                         statusLabel.setText("Erreur de suppression du dossier.");
                     }
                 });
             } catch (Exception e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    showError("Erreur", "Erreur lors de la suppression du dossier: " + e.getMessage());
+                    UIDialogs.showError("Erreur", "Erreur lors de la suppression du dossier: " + e.getMessage());
                     statusLabel.setText("Erreur de suppression du dossier");
                 });
             }
@@ -1167,29 +1208,142 @@ public class MainController {
         return String.format("%.1f %sB", bytes / Math.pow(1024, exp), unit);
     }
 
+//    /**
+//     * afficher les erreurs
+//     * @param title
+//     * @param content
+//     */
+//    private void showError(String title, String content) {
+//        Alert alert = new Alert(Alert.AlertType.ERROR);
+//        alert.setTitle(title);
+//        alert.setHeaderText(null);
+//        alert.setContentText(content);
+//        alert.showAndWait();
+//    }
+//
+//    /**
+//     * afficher les informations
+//     * @param title
+//     * @param content
+//     */
+//    private void showInfo(String title, String content) {
+//        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+//        alert.setTitle(title);
+//        alert.setHeaderText(null);
+//        alert.setContentText(content);
+//        alert.showAndWait();
+//    }
+
     /**
-     * afficher les erreurs
-     * @param title
-     * @param content
+     * ouvrir le dialog renameFolder.fxml pour renommer un dossier
+     * @param folder
      */
-    private void showError(String title, String content) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    private void openRenameFolderDialog(NodeItem folder){
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/renameFolder.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            RenameFolderController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Renommer le dossier");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(treeView.getScene().getWindow());
+            dialogStage.setResizable(false);
+            dialogStage.setScene(new Scene(root));
+
+            controller.setStage(dialogStage);
+
+            controller.setCurrentName(folder.getName());
+
+            controller.setOnConfirm(newName -> {
+                statusLabel.setText("Renommage en cours...");
+                new Thread(() -> {
+                    try {
+                        apiClient.renameFolder(folder.getId(), newName); //=> il faut id et name
+
+                        Platform.runLater(() -> {
+                            loadData(); // => refresh Tree
+                            statusLabel.setText("Dossier renommé en " + newName);
+                        });
+                    }catch (Exception e){
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            UIDialogs.showError("Renommer", "Erreur: " + e.getMessage());
+                            statusLabel.setText("Erreur pendant le renommage");
+                        });
+                    }
+                }).start();
+            });
+
+            dialogStage.showAndWait();
+
+        }catch (Exception e){
+            System.err.println("Erreur lors du chargement de renameFolder.fxml");
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", "Impossible d'ouvrir renameFolder.fxml" + e.getMessage());
+        }
     }
 
     /**
-     * afficher les informations
-     * @param title
-     * @param content
+     * ouvrir le dialog renameFile.fxml pour renommer un fichier
+     * @param file
      */
-    private void showInfo(String title, String content) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(content);
-        alert.showAndWait();
+    private void openRenameFileDialog(FileEntry file){
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/renameFile.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            RenameFileController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Renommer le fichier");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(treeView.getScene().getWindow());
+            dialogStage.setResizable(false);
+            dialogStage.setScene(new Scene(root));
+
+            controller.setStage(dialogStage);
+
+            controller.setCurrentName(file.getName());
+
+            controller.setOnConfirm(newName -> {
+                statusLabel.setText("Renommage en cours...");
+                new Thread(() -> {
+                    try {
+                        apiClient.renameFile(file.getId(), newName); //=> il faut id et name
+                        Platform.runLater(() -> {
+                            if(currentFolder != null){
+                                loadFiles(currentFolder);
+                            }else{
+                                loadData(); // => refresh
+                            }
+                            statusLabel.setText("Fichier renommé en " + newName);
+                        });
+                    }catch (Exception e){
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            UIDialogs.showError("Renommer", "Erreur: " + e.getMessage());
+                            statusLabel.setText("Erreur pendant le renommage");
+                        });
+                    }
+                }).start();
+            });
+
+            dialogStage.showAndWait();
+
+        }catch (Exception e){
+            System.err.println("Erreur lors du chargement de renameFile.fxml");
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", "Impossible d'ouvrir renameFile.fxml: " + e.getMessage());
+        }
     }
 }

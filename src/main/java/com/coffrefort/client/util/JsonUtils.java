@@ -209,17 +209,23 @@ public class JsonUtils {
 
             // expires_at
             String expiresAt = unescapeJsonString(extractJsonField(o, "expires_at"));
-            item.setExpiresAt(expiresAt);
+            item.setExpiresAt(expiresAt != null ? expiresAt : "-");
             System.out.println("  - expires_at: " + expiresAt);
 
             // remaining_uses
             String remaining = extractJsonNumberField(o, "remaining_uses");
-            if (remaining != null && !remaining.isEmpty()) {
+            if (remaining != null && !remaining.isEmpty() && !"null".equalsIgnoreCase(remaining)) {
                 item.setRemainingUses(Integer.parseInt(remaining));
                 System.out.println("  - remaining_uses: " + remaining);
             } else {
+                item.setRemainingUses(null);
                 System.out.println("  - remaining_uses: null (illimité)");
             }
+
+            // url
+            String url = unescapeJsonString(extractJsonField(o, "url"));
+            item.setUrl(url);
+            System.out.println("  - url: " + url);
 
             // is_revoked
             String revoked = extractJsonNumberField(o, "is_revoked");

@@ -47,6 +47,7 @@ public class ShareController {
         this.onShare = onShare;
     }
 
+
     @FXML
     private void handleShare() {
         String recipient = (recipientField.getText() == null) ? "" : recipientField.getText().trim();

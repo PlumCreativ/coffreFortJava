@@ -40,15 +40,15 @@
 
             <TableColumn fx:id="remainingCol"
                          text="Restant"
-                         prefWidth="90"/>
+                         prefWidth="80"/>
 
             <TableColumn fx:id="statusCol"
                          text="État"
-                         prefWidth="90"/>
+                         prefWidth="80"/>
 
             <TableColumn fx:id="actionCol"
                          text="Actions"
-                         prefWidth="120"/>
+                         prefWidth="140"/>
         </columns>
     </TableView>
 

@@ -8,6 +8,7 @@ public class ShareItem {
     private String expiresAt;
     private Integer remainingUses;
     private boolean revoked;
+    private String url;
 
     public ShareItem() {}
 
@@ -57,5 +58,13 @@ public class ShareItem {
 
     public void setRevoked(boolean revoked) {
         this.revoked = revoked;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
     }
 }
