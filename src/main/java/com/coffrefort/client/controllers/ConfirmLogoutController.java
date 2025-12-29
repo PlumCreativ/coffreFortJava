@@ -18,6 +18,9 @@ public class ConfirmLogoutController {
 
    //Méthodes
     @FXML
+    /**
+     * Initialise les textes par défaut des labels si aucun texte n’est déjà défini dans le FXML.
+     */
     private void initialize() {
         if (infoLabel != null && (infoLabel.getText() == null || infoLabel.getText().isBlank())) {
             infoLabel.setText("Voulez-vous vraiment vous déconnecter ?");
@@ -28,15 +31,29 @@ public class ConfirmLogoutController {
         }
     }
 
+
+    /**
+     * Injecte le Stage de la fenêtre modale pour permettre sa fermeture depuis le contrôleur
+     * @param dialogStage
+     */
     public void setDialogStage(Stage dialogStage) {
         this.dialogStage = dialogStage;
     }
 
+
+    /**
+     * Définit le callback exécuté lorsque l’utilisateur confirme la déconnexion
+     * @param onLogoutConfirmed
+     */
     public void setOnLogoutConfirmed(Runnable onLogoutConfirmed) {
         this.onLogoutConfirmed = onLogoutConfirmed;
     }
 
+
     @FXML
+    /**
+     * Gère le clic sur “Annuler” en loggant l’action et en fermant la fenêtre de confirmation
+     */
     private void handleCancel() {
         System.out.println("Déconnexion annulée par l'utilisateur.");
         if (dialogStage != null) {
@@ -44,10 +61,11 @@ public class ConfirmLogoutController {
         }
     }
 
-    /**
-     * Gestion de la confirmation de déconnection
-     */
+
     @FXML
+    /**
+     * Gère le clic sur “Confirmer” en exécutant le callback de déconnexion puis en fermant la fenêtre (même en cas d’erreur)
+     */
     private void handleConfirm() {
         try {
             System.out.println("Confirmation de la déconnexion...");

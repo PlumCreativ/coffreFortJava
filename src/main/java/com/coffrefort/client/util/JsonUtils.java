@@ -2,13 +2,21 @@ package com.coffrefort.client.util;
 
 
 import com.coffrefort.client.model.ShareItem;
+import com.coffrefort.client.model.VersionEntry;
+import com.coffrefort.client.model.FileEntry;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class JsonUtils {
 
-    // Méthode utilitaire pour extraire un champ texte d'un petit JSON
+
+    /**
+     * Extrait la valeur texte d’un champ JSON (entre guillemets) à partir d’une chaîne JSON simple
+     * @param json
+     * @param fieldName
+     * @return
+     */
     public static String extractJsonField(String json, String fieldName) {
         if (json == null) return null;
 
@@ -29,7 +37,13 @@ public class JsonUtils {
     }
 
 
-    // méthode pour extraire un champ numérique (ex: user_id: 6)
+    /**
+     * Extrait la valeur numérique (int/long sous forme de String) d’un champ JSON à partir d’une chaîne JSON simple
+     * (ex: user_id: 6)
+     * @param json
+     * @param fieldName
+     * @return
+     */
     public static String extractJsonNumberField(String json, String fieldName) {
         if (json == null) return null;
 
@@ -66,7 +80,7 @@ public class JsonUtils {
     }
 
     /**
-     * Extrait un tableau JSON associé à un champ
+     * Extrait le tableau JSON (incluant les crochets []) associé à un champ donné en gérant les crochets imbriqués
      * @param json Le JSON source
      * @param fieldName Le nom du champ contenant le tableau
      * @return Le contenu du tableau (incluant les crochets [])
@@ -112,7 +126,11 @@ public class JsonUtils {
         return null;
     }
 
-
+    /**
+     * Déséchappe une chaîne JSON (\/, \", \\) pour obtenir la valeur lisible côté client
+     * @param s
+     * @return
+     */
     public static String unescapeJsonString(String s) {
         if (s == null) return null;
         return s.replace("\\/", "/")
@@ -120,11 +138,12 @@ public class JsonUtils {
                 .replace("\\\\", "\\");
     }
 
-    private JsonUtils() {
-        // constructeur privé pour empêcher l'instanciation
-    }
 
-
+    /**
+     * Parse la réponse JSON des partages (champ "shares" ou tableau direct) en une liste de ShareItem
+     * @param json
+     * @return
+     */
     public static List<ShareItem> parseShareItem(String json) {
         System.out.println("JsonUtils - parseShareItem() - JSON reçu: " + json);
 
@@ -241,6 +260,7 @@ public class JsonUtils {
     }
 
     /**
+     * Découpe une chaîne contenant plusieurs objets JSON en objets individuels en comptant les accolades
      * Sépare une chaîne contenant plusieurs objets JSON
      * Plus robuste que split() car gère les virgules dans les valeurs
      */
@@ -266,5 +286,116 @@ public class JsonUtils {
         }
 
         return objects;
+    }
+
+
+    /**
+     * Parse la réponse JSON paginée des versions (champ "items") en une liste de VersionEntry
+     * @param json
+     * @return
+     */
+    public static List<VersionEntry> parseVersionEntriesFromVersionsList(String json) {
+
+        List<VersionEntry> result = new ArrayList<>();
+
+        if (json == null || json.isBlank()) {
+            System.out.println("JsonUtils - JSON vide ou null");
+            return result;
+        }
+
+        //réponse de backend => { file_id, page, limit, total, items: [ ... ] }
+        String itemsArray = extractJsonArrayField(json, "items");
+        if (itemsArray == null || itemsArray.isBlank()) {
+            System.out.println("'items' recu du backend vide ou null");
+            return result;
+        }
+
+        String trimmed = itemsArray.trim();
+
+        // enlever []
+        if(trimmed.startsWith("[")) {
+            trimmed = trimmed.substring(1);
+        }
+        if (trimmed.endsWith("]")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        trimmed = trimmed.trim();
+
+        if(trimmed.isEmpty()) {
+            return result;
+        }
+
+        List<String> objects = splitJsonObjects(trimmed);
+
+        for(String object : objects) {
+            String o = object.trim();
+            if (!o.startsWith("{")) {
+                o = "{" + o;
+            }
+            if (!o.endsWith("}")) {
+                o = o + "}";
+            }
+
+            String idString = extractJsonNumberField(o, "id");
+            String versionString =  extractJsonNumberField(o, "version");
+            String sizeString =  extractJsonNumberField(o, "size");
+            String createdAtString =  unescapeJsonString(extractJsonField(o, "created_at"));
+            String checksumHex = unescapeJsonString(extractJsonField(o, "checksum"));
+
+            int id = (idString != null && !idString.isEmpty()) ? Integer.parseInt(idString) : 0;
+            int version = (versionString != null && !versionString.isEmpty()) ? Integer.parseInt(versionString) : 0;
+            long size = (sizeString != null && !sizeString.isEmpty()) ? Long.parseLong(sizeString) : 0L;
+
+            result.add(new VersionEntry(id, version, size, createdAtString, checksumHex));
+        }
+
+        return result;
+    }
+
+    public static FileEntry parseFileEntry(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+
+        // id
+        String idStr = extractJsonNumberField(json, "id");
+        int id = (idStr != null && !idStr.isEmpty()) ? Integer.parseInt(idStr) : 0;
+
+        // name => "original_name" renvoyé par le backend
+        String name = unescapeJsonString(extractJsonField(json, "original_name"));
+        if (name == null || name.isBlank()) {
+
+            // fallback => au cas ou un jour changer le champ côté backend
+            name = unescapeJsonString(extractJsonField(json, "name"));
+        }
+
+        if (name == null) name = "";
+
+        // size
+        String sizeStr = extractJsonNumberField(json, "size");
+        long size = (sizeStr != null && !sizeStr.isEmpty()) ? Long.parseLong(sizeStr) : 0L;
+
+        // created_at
+        String createdAt = unescapeJsonString(extractJsonField(json, "created_at"));
+        if (createdAt == null) createdAt = "";
+
+        // created_at
+        String updatedAt = unescapeJsonString(extractJsonField(json, "updated_at"));
+        if (updatedAt == null) updatedAt = "";
+
+        if (id <= 0) {
+            // Si l’API renvoie une erreur HTML/texte => éviter de créer un objet “fantôme”
+            throw new IllegalArgumentException("parseFileEntry: champ 'id' invalide ou manquant. JSON=" + json);
+        }
+
+        return FileEntry.of(id, name, size, createdAt, updatedAt);
+    }
+
+
+    /**
+     * Empêche l’instanciation de la classe utilitaire JsonUtils.
+     */
+    private JsonUtils() {
+        // constructeur privé pour empêcher l'instanciation
     }
 }

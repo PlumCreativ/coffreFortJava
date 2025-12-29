@@ -45,24 +45,43 @@ public class UploadDialogController {
 
     //méthodes
 
+    /**
+     * Définit l’identifiant du dossier cible dans lequel les fichiers seront uploadés.
+     * @param targetFolderId
+     */
     public void setTargetFolderId(Integer targetFolderId){
         this.targetFolderId = targetFolderId;
     }
 
+    /**
+     * Injecte l’ApiClient utilisé pour vérifier le quota et effectuer l’upload
+     * @param apiClient
+     */
     public void setApiClient(ApiClient apiClient) {
         this.apiClient = apiClient;
     }
 
+    /**
+     * Injecte le Stage de la fenêtre modale pour pouvoir la fermer depuis le contrôleur
+     * @param dialogStage
+     */
     public void setDialogStage(Stage dialogStage) {
         this.dialogStage = dialogStage;
     }
 
+    /**
+     * Définit le callback exécuté après un upload réussi (ex: rafraîchir la liste des fichiers)
+     * @param onUploadSuccess
+     */
     public void setOnUploadSuccess(Runnable onUploadSuccess) {
         this.onUploadSuccess = onUploadSuccess;
     }
 
 
     @FXML
+    /**
+     * Initialise l’UI (cache la progression/messages) et désactive l’upload tant qu’aucun fichier n’est sélectionné
+     */
     private void initialize() {
         // Au début, pas de progression
         progressContainer.setVisible(false);
@@ -79,6 +98,7 @@ public class UploadDialogController {
 
     /** à compléter et à vérifier!!!
      * Gestion de la sélection d'un file ou plusieurs file
+     * Ouvre un FileChooser pour sélectionner un ou plusieurs fichiers et met à jour la liste affichée
      */
     @FXML
     private void handleSelectFile() {
@@ -107,7 +127,7 @@ public class UploadDialogController {
     }
 
     /**
-     * Gestion de l'upload
+     * Vérifie les prérequis (ApiClient, fichiers, dossier, quota) puis upload les fichiers en tâche de fond avec progression
      */
     @FXML
     private void handleUpload() {
@@ -263,6 +283,7 @@ public class UploadDialogController {
 
     /**
      * Gestion de "annulation"
+     * Annule et ferme la fenêtre d’upload sans effectuer d’action
      */
     @FXML
     private void handleCancel() {
@@ -272,6 +293,9 @@ public class UploadDialogController {
 
     // ====== Méthodes utilitaires ======
 
+    /**
+     * Met à jour la liste visuelle des fichiers sélectionnés avec leur taille et un bouton de suppression
+     */
     private void refreshSelectedFilesUI() {
         selectedFilesList.getChildren().clear();
 
@@ -307,7 +331,7 @@ public class UploadDialogController {
     }
 
     /** à vérifier => il y a un FileEntry et dans le MainController
-     * formater la taille
+     * Convertit une taille en octets en format lisible (o, Ko, Mo, Go) pour l’affichage
      * @param bytes
      * @return
      */
@@ -322,7 +346,7 @@ public class UploadDialogController {
     }
 
     /**
-     * Afficher les messages d'erreur
+     * Affiche un message d’erreur stylé dans le label de message.
      * @param text
      */
     private void showErrorMessage(String text) {
@@ -333,7 +357,7 @@ public class UploadDialogController {
     }
 
     /**
-     * Afficher les messages de réussite
+     * Affiche un message de succès stylé dans le label de message
      * @param text
      */
     private void showSuccessMessage(String text) {
@@ -344,7 +368,7 @@ public class UploadDialogController {
     }
 
     /**
-     * Cacher le messagelabel
+     * Masque le label de message (erreur/succès) dans l’interface
      */
     private void hideMessage() {
         messageLabel.setVisible(false);
@@ -352,7 +376,7 @@ public class UploadDialogController {
     }
 
     /**
-     * fermer la fenêtre
+     * Ferme la fenêtre modale (Stage injecté ou récupération via la scène en fallback)
      */
     private void closeDialog() {
         if (dialogStage != null) {
@@ -368,6 +392,7 @@ public class UploadDialogController {
 
     /**
      * sélection de la fenêtre "concernéé"
+     * Retourne la fenêtre courante (Stage injecté sinon fenêtre trouvée depuis le bouton)
      * @return
      */
     private Window getWindow() {

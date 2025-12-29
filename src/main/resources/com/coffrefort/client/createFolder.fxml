@@ -67,9 +67,16 @@
                    promptText="Entrez le nom du dossier"
                    style="-fx-background-radius: 4; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-border-radius: 4; -fx-font-size: 13px;">
             <effect>
-                <DropShadow height="5.0" offsetX="1.0" offsetY="1.0" radius="2.0" width="5.0">
+                <DropShadow height="5.0"
+                            offsetX="1.0"
+                            offsetY="1.0"
+                            radius="2.0"
+                            width="5.0">
                     <color>
-                        <Color red="0.6" green="0.04" blue="0.04" opacity="0.15" />
+                        <Color red="0.6"
+                               green="0.04"
+                               blue="0.04"
+                               opacity="0.15" />
                     </color>
                 </DropShadow>
             </effect>
@@ -109,7 +116,10 @@
             <effect>
                 <DropShadow radius="10.0">
                     <color>
-                        <Color red="0.6" green="0.04" blue="0.04" opacity="0.4" />
+                        <Color red="0.6"
+                               green="0.04"
+                               blue="0.04"
+                               opacity="0.4" />
                     </color>
                 </DropShadow>
             </effect>

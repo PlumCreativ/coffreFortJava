@@ -2,6 +2,7 @@ package com.coffrefort.client.model;
 
 public class ShareItem {
 
+    //propriétés
     private int id;
     private String resource;
     private String label;
@@ -10,6 +11,8 @@ public class ShareItem {
     private boolean revoked;
     private String url;
 
+
+    //méthodes
     public ShareItem() {}
 
     public int getId() {

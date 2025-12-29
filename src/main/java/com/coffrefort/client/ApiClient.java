@@ -1,10 +1,7 @@
 package com.coffrefort.client;
 
 import com.coffrefort.client.config.AppProperties;
-import com.coffrefort.client.model.FileEntry;
-import com.coffrefort.client.model.NodeItem;
-import com.coffrefort.client.model.Quota;
-import com.coffrefort.client.model.ShareItem;
+import com.coffrefort.client.model.*;
 import com.coffrefort.client.util.JsonUtils;
 import com.coffrefort.client.util.JwtUtils;
 
@@ -24,6 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+//import pour la classe statique ProgressBodyPublisher
+import java.nio.ByteBuffer;
+import java.util.concurrent.Flow;
+
 
 public class ApiClient {
 
@@ -36,12 +37,18 @@ public class ApiClient {
 
 
     //méthodes
-    // Constructeur par défaut avec URL localhost
+
+    /**
+     * Initialise l’ApiClient avec l’URL par défaut (localhost)
+     */
     public ApiClient() {
         this("http://localhost:9081");
     }
 
-    // Constructeur avec URL personnalisée
+    /**
+     * Initialise l’ApiClient avec une URL de backend personnalisée
+     * @param baseUrl
+     */
     public ApiClient(String baseUrl) {
         this.baseUrl = baseUrl;
         this.httpClient = HttpClient.newHttpClient();
@@ -49,7 +56,7 @@ public class ApiClient {
     }
 
     /**
-     * Authentification utilisateur avec email et mot de passe
+     * Authentification utilisateur avec email et mot de passe via /auth/login
      * @param email Email de l'utilisateur
      * @param password Mot de passe
      * @return Le token JWT si succès, null sinon
@@ -108,7 +115,7 @@ public class ApiClient {
     }
 
     /**
-     * Inscription d'un nouvel utilisateur puis connexion automatique
+     * Inscrit un utilisateur via /auth/register puis le connecte via /auth/login et stocke le JWT
      * @param email Email de l'utilisateur
      * @param password Mot de passe
      * @param quotaTotal
@@ -195,7 +202,7 @@ public class ApiClient {
 
     /**
      *
-     * @return
+     * @return l’instance singleton d’ApiClient (créée au premier appel)
      */
     public static ApiClient getInstance() {
         if(INSTANCE == null) {
@@ -205,6 +212,7 @@ public class ApiClient {
     }
 
     /**
+     * Enregistre le token JWT et persist email/userId extraits du token dans AppProperties
      * Définir manuellement le token (pour restauration depuis persistance)
      * stocker authToken en mémoire
      */
@@ -227,7 +235,7 @@ public class ApiClient {
     }
 
     /**
-     * Créer un dossier
+     * Crée un dossier (racine ou enfant) via POST /folders pour l’utilisateur connecté
      * @param name
      * @param parentFolder
      * @return
@@ -295,27 +303,10 @@ public class ApiClient {
     }
 
 
-    private String escapeJson(String value) {
-        if (value == null) return "";
-        return value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"");
-    }
 
     /**
-     * uploader un fichier dans le dossier racine par défaut
-     * @param file
-     * @return
-     * @throws Exception
-     */
-    public boolean uploadFile(File file) throws Exception{
-        //s'il n'y a pas dossier => passer en null
-        return uploadFile(file, null);
-    }
-
-
-    /**
-     * * uploader un ou des fichier(s)
+     * Upload un fichier dans un dossier (ou racine) via POST /files en multipart/form-data
+     * Upload un fichier dans la racine en réutilisant uploadFile(file, null)
      * @param file fichier local
      * @param folderId  id du dossier cible (peut être null pour racine si ton backend le gère)
      * @return
@@ -374,56 +365,8 @@ public class ApiClient {
     }
 
 
-     /**
-     * @param file
-     * @param boundary
-     * @return
-     * @throws Exception
-     */
-    private byte[] buildMultipartBody(File file, String boundary, Integer folderId) throws Exception {
-        String CRLF = "\r\n";
-
-        String mimeType = Files.probeContentType(file.toPath());
-        if (mimeType == null) {
-            mimeType = "application/octet-stream"; // fallback
-        }
-
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-
-        // ---- Partie "folder_id" (si fourni)
-        if (folderId != null) {
-            String folderPart =
-                    "--" + boundary + CRLF +
-                            "Content-Disposition: form-data; name=\"folder_id\"" + CRLF + CRLF +
-                            folderId + CRLF;
-
-            output.write(folderPart.getBytes(StandardCharsets.UTF_8));
-        }
-
-        // ---- Partie "file"
-        String filePartHeader =
-                "--" + boundary + CRLF +
-                        "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + CRLF +
-                        "Content-Type: " + mimeType + CRLF + CRLF;
-
-        output.write(filePartHeader.getBytes(StandardCharsets.UTF_8));
-
-        byte[] fileBytes = Files.readAllBytes(file.toPath());
-        output.write(fileBytes);
-
-        // Fin de la part fichier
-        output.write(CRLF.getBytes(StandardCharsets.UTF_8));
-
-        // ---- Fin multipart
-        String ending = "--" + boundary + "--" + CRLF;
-        output.write(ending.getBytes(StandardCharsets.UTF_8));
-
-        return output.toByteArray();
-    }
-
-
     /**
-     * Récupération de tous les folders d'un utilisateur
+     * Récupère tous les dossiers via GET /folders et reconstruit l’arborescence en NodeItem
      * @return
      * @throws Exception
      */
@@ -457,7 +400,7 @@ public class ApiClient {
     }
 
     /**
-     * Récupération des fichier d'un folder précis lié à une client
+     * Récupère la liste des fichiers d’un dossier via GET /files?folder=... et les parse en FileEntry
      * @param folderId
      * @return
      * @throws Exception
@@ -493,7 +436,7 @@ public class ApiClient {
 
 
     /**
-     * Déconnexion - Supprime le token
+     * Déconnecte l’utilisateur en supprimant le token en mémoire et dans AppProperties
      */
     public void logout() {
         this.authToken = null;
@@ -503,21 +446,21 @@ public class ApiClient {
     }
 
     /**
-     * Vérifie si l'utilisateur est authentifié
+     * Indique si un token JWT valide est présent côté client
      */
     public boolean isAuthenticated() {
         return this.authToken != null && !this.authToken.isEmpty();
     }
 
     /**
-     * Retourne le token d'authentification actuel
+     * Retourne le token JWT actuellement stocké en mémoire
      */
     public String getAuthToken() {
         return this.authToken;
     }
 
     /**
-     * récupération quota depuis d'une requête API
+     * Récupère le quota utilisateur via GET /me/quota et retourne un objet Quota (used/total)
      */
     public Quota getQuota() throws Exception {
         if(authToken == null || authToken.isEmpty()) {
@@ -558,26 +501,9 @@ public class ApiClient {
         return new Quota(used, total);
     }
 
-    /**
-     * Exception personnalisée pour les erreurs d'authentification
-     */
-    public static class AuthenticationException extends Exception {
-        public AuthenticationException(String message) {
-            super(message);
-        }
-    }
 
     /**
-     * Exception pour les erreurs d'inscription
-     */
-    public static class RegistrationException extends Exception {
-        public RegistrationException(String message) {
-            super(message);
-        }
-    }
-
-    /**
-     * supprimer le fichier choisi
+     * Supprime un fichier via DELETE /files/{id} et retourne true si succès
      * @param id
      * @return
      * @throws Exception
@@ -614,7 +540,7 @@ public class ApiClient {
 
 
     /**
-     * supprimer un dossier choisi
+     * Supprime un dossier via DELETE /folders/{id} et retourne true si succès
      * @param id
      * @return
      * @throws Exception
@@ -653,7 +579,7 @@ public class ApiClient {
     }
 
     /**
-     * télécharger un file
+     * Télécharge un fichier via GET /files/{id}/download et l’écrit dans le fichier cible
      * @param fileId
      * @param target
      * @throws Exception
@@ -686,170 +612,8 @@ public class ApiClient {
     }
 
 
-    //méthodes private
-
-    //DTO =Data Transfer Object => pour structurer les données pour les rendre faciles à échanger
-    private static class FolderDto{
-        int id;
-        String name;
-        Integer parentId;
-    }
-
-
     /**
-     * construction d'un NodeItem "racine" virtuel avec tous les dossiers enfants
-     * @param json
-     * @return
-     */
-    private NodeItem buildFolderTreeFromJson(String json) {
-        List<FolderDto> folders = parseFolders(json);
-
-        // Racine virtuelle (id 0) non affichée parce que TreeView.showRoot = false
-        NodeItem root = NodeItem.folder(0, "Racine");
-        java.util.Map<Integer, NodeItem> map = new java.util.HashMap<>();
-
-        // Créer tous les noeuds
-        for (FolderDto f : folders) {
-            NodeItem node = NodeItem.folder(f.id, f.name);
-            map.put(f.id, node);
-        }
-
-        // Assembler l'arborescence selon parent_id
-        for (FolderDto f : folders) {
-            NodeItem node = map.get(f.id);
-
-            if (f.parentId == null || f.parentId == 0) {
-
-                // dossier racine
-                root.addChild(node);
-            } else {
-                NodeItem parent = map.get(f.parentId);
-                if (parent != null) {
-                    parent.addChild(node);
-                } else {
-
-                    // parent non trouvé → par sécurité à accrocher à la racine
-                    root.addChild(node);
-                }
-            }
-        }
-        return root;
-    }
-
-
-    /**
-     * Parse un JSON de type:
-     *   [ { "id":1, "name":"Docs", "parent_id":null }, ... ]
-     * ou un seul objet:
-     *   { "id":1, "name":"Docs", "parent_id":null, ... }
-     */
-    private List<FolderDto> parseFolders(String json) {
-        List<FolderDto> result = new ArrayList<>();
-        if (json == null || json.isBlank()) return result;
-
-        String trimmed = json.trim();
-
-        String[] parts;
-
-        if (trimmed.startsWith("[")) {    // => tableau: [ {...}, {...} ]
-
-            // enlever les crochets
-            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
-            if (trimmed.isBlank()) return result;
-
-            // découper à la grosse: "},{"
-            parts = trimmed.split("\\},\\s*\\{"); //=> les objets séparés par } , {
-        } else {
-
-            //un seul objet: { ... }
-            parts = new String[]{ trimmed };
-        }
-
-        for (String part : parts) {
-            String objet = part.trim();
-            if (!objet.startsWith("{")) objet = "{" + objet;
-            if (!objet.endsWith("}")) objet = objet + "}";
-
-            FolderDto dto = new FolderDto();
-
-            // "id": 1
-            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
-
-            if (idStr != null) {
-                dto.id = Integer.parseInt(idStr);
-            }
-
-            // "name": "Documents"
-            dto.name = JsonUtils.extractJsonField(objet, "name");
-
-            // "parent_id": null ou un nombre
-            String parentStr = JsonUtils.extractJsonNumberField(objet, "parent_id");
-            if (parentStr != null) {
-                dto.parentId = Integer.parseInt(parentStr);
-            } else {
-                dto.parentId = null; // parent_id null => dossier racine
-            }
-            result.add(dto);
-        }
-        return result;
-    }
-
-    /**
-     *
-     * @param json
-     * @return
-     */
-    private List<FileEntry> parseFiles(String json) {
-        List<FileEntry> result = new ArrayList<>();
-        if (json == null || json.isBlank()) return result;
-
-        String trimmed = json.trim();
-        String[] parts;
-
-        if (trimmed.startsWith("[")) {
-
-            // Cas tableau: [ {...}, {...} ]
-            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
-            if (trimmed.isBlank()) return result;
-
-            // découpe grossière sur "},{"
-            parts = trimmed.split("\\},\\s*\\{");
-        } else {
-
-            //un seul objet: { ... }
-            parts = new String[]{ trimmed };
-        }
-
-        // découper à la grosse: "},{"
-        String[] filesParts = trimmed.split("\\},\\s*\\{");
-
-        for (String part : filesParts) {
-            String objet = part.trim();
-            if (!objet.startsWith("{")) objet = "{" + objet;
-            if (!objet.endsWith("}")) objet = objet + "}";
-
-
-            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
-            String name = JsonUtils.extractJsonField(objet, "original_name");
-            String sizeStr = JsonUtils.extractJsonNumberField(objet, "size");
-            String date = JsonUtils.extractJsonField(objet, "created_at");
-
-            int id = (idStr != null) ? Integer.parseInt(idStr) : 0;
-            long size = (sizeStr != null )? Long.parseLong(sizeStr) : 0L;
-
-            if (name == null) {
-                // sécurité : si jamais ton API change de champ un jour
-                name = JsonUtils.extractJsonField(objet, "name");
-            }
-
-            result.add(FileEntry.of(id, name, size, date));
-        }
-        return result;
-    }
-
-
-    /**
-     * Création de lien de partage
+     * Crée un lien de partage via POST /shares et retourne l’URL générée par le backend
      * @param id
      * @param recipient
      * @return
@@ -921,7 +685,7 @@ public class ApiClient {
     }
 
     /**
-     * lister les partages
+     * Récupère tous les partages via GET /shares et les parse en List<ShareItem>
      * @return
      * @throws Exception
      */
@@ -958,7 +722,7 @@ public class ApiClient {
     }
 
     /**
-     * révoquer une partage
+     * Révoque un partage via POST /shares/{id}/revoke
      * @param id
      * @throws Exception
      */
@@ -983,7 +747,7 @@ public class ApiClient {
     }
 
     /**
-     * renommer un dossier
+     * Renomme un dossier via PUT /folders/{id} avec le nouveau nom
      * @param folderId
      * @param newName
      * @throws Exception
@@ -1030,7 +794,7 @@ public class ApiClient {
     }
 
     /**
-     * renommer un fichier
+     * Renomme un fichier via PUT /files/{id} avec le nouveau nom
      * @param fileId
      * @param newName
      * @throws Exception
@@ -1075,6 +839,496 @@ public class ApiClient {
 
         throw new RuntimeException("Erreur de renameFile: (HTTP " + status + "): " + error);
     }
+
+    /**
+     * Interface callback pour remonter l’avancement (octets envoyés / total) pendant un upload
+     */
+    public interface ProgressListener {
+        void onProgress(long sentBytes, long totalBytes);
+    }
+
+
+    /**
+     * Liste les versions d’un fichier via GET /files/{id}/versions et retourne une List<VersionEntry>
+     * @param fileId
+     * @param page
+     * @param limit
+     * @return
+     * @throws Exception
+     */
+    public List<VersionEntry> listFileVersions(int fileId, int page, int limit) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(fileId <= 0){
+            throw new IllegalArgumentException("FileId invalide " + fileId);
+        }
+
+        if(page < 0) page = 1;
+        if(limit < 0) limit = 20;
+
+        String url = baseUrl + "/files/" + fileId + "/versions?page=" + page + "&limit=" + limit;
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Accept", "application/json")
+                //.header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        System.out.println("GET " + url + "status = " + status);
+        System.out.println("GET versions body = " + body );
+
+        if (status == 401 || status == 403){
+            throw new AuthenticationException("Non autorise :  token invalide ou expire");
+        }
+
+        if(status != 200){
+            String apiError = JsonUtils.extractJsonField(body, "error");
+
+            if(apiError == null || apiError.isEmpty()){
+                apiError = body;
+                throw new RuntimeException("Erreur listFileVersions (HTTP " + status + "): " + apiError);
+            }
+        }
+        return JsonUtils.parseVersionEntriesFromVersionsList(body);
+    }
+
+    /**
+     * Upload une nouvelle version d’un fichier via POST /files/{id}/versions en multipart avec suivi de progression
+     * @param fileId
+     * @param newFile
+     * @param progress
+     * @throws Exception
+     */
+    public void uploadNewVersion(int fileId, File newFile, ProgressListener progress) throws Exception {
+
+        if(newFile == null || !newFile.exists()){
+            throw new Exception("Fichier invalide");
+        }
+
+        //vérifier le token
+        String token = this.authToken;
+        if(token == null || token.isEmpty()){
+            token = AppProperties.get("auth.token");
+        }
+        if(token == null || token.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(fileId <= 0){
+            throw new IllegalArgumentException("FileId invalide " + fileId);
+        }
+
+        String url = baseUrl + "/files/" + fileId + "/versions";
+        String boundary = "----CryptoVaultBoundary" + UUID.randomUUID();
+        String contentType = "multipart/form-data; boundary=" + boundary;
+
+        //construction le multipart en bytes
+        byte[] bodyBytes = buildMultipartBody(newFile, boundary, null);
+        long total = bodyBytes.length;
+
+        HttpRequest.BodyPublisher publisher = new ProgressBodyPublisher(
+                HttpRequest.BodyPublishers.ofByteArray(bodyBytes),
+                total,
+                progress
+        );
+
+        // Construction de la requête HTTP
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Accept", "application/json")
+                .header("Content-Type", contentType)
+                .header("Authorization", "Bearer " + token)
+                .POST(publisher)
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        System.out.println("POST " + url + "status = " + status);
+        System.out.println("POST versions body = " + body );
+
+        if (status == 401 || status == 403){
+            throw new AuthenticationException("Non autorise :  token invalide ou expire");
+        }
+
+        if(status != 201){
+            String apiError = JsonUtils.extractJsonField(body, "error");
+
+            if(apiError == null || apiError.isEmpty()){
+                apiError = body;
+            }
+            throw new RuntimeException("Erreur uploadNewVersion (HTTP " + status + "): " + apiError);
+        }
+    }
+
+    public FileEntry getFile(int fileId) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(fileId <= 0){
+            throw new IllegalArgumentException("FileId invalide " + fileId);
+        }
+
+        String url = baseUrl + "/files/" + fileId;
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+
+        if(status != 200){
+            String apiError =  JsonUtils.extractJsonField(response.body(), "error");
+
+            if(apiError == null || apiError.isEmpty()){
+                apiError = response.body();
+            }
+
+            throw new RuntimeException("Erreur getFile (HTTP " + status + "): " + apiError);
+        }
+
+        return JsonUtils.parseFileEntry(response.body());
+
+
+    }
+
+
+    //méthodes private  => HELPERS
+
+    /**
+     * DTO interne pour parser les dossiers (id, name, parentId) avant de reconstruire l’arbre
+     * DTO =Data Transfer Object => pour structurer les données pour les rendre faciles à échanger
+     */
+    private static class FolderDto{
+        int id;
+        String name;
+        Integer parentId;
+    }
+
+
+    /**
+     * construction d'un NodeItem "racine" virtuel avec tous les dossiers enfants
+     * Reconstruit l’arborescence NodeItem (racine virtuelle + enfants) à partir du JSON des dossiers
+     * @param json
+     * @return
+     */
+    private NodeItem buildFolderTreeFromJson(String json) {
+        List<FolderDto> folders = parseFolders(json);
+
+        // Racine virtuelle (id 0) non affichée parce que TreeView.showRoot = false
+        NodeItem root = NodeItem.folder(0, "Racine");
+        java.util.Map<Integer, NodeItem> map = new java.util.HashMap<>();
+
+        // Créer tous les noeuds
+        for (FolderDto f : folders) {
+            NodeItem node = NodeItem.folder(f.id, f.name);
+            map.put(f.id, node);
+        }
+
+        // Assembler l'arborescence selon parent_id
+        for (FolderDto f : folders) {
+            NodeItem node = map.get(f.id);
+
+            if (f.parentId == null || f.parentId == 0) {
+
+                // dossier racine
+                root.addChild(node);
+            } else {
+                NodeItem parent = map.get(f.parentId);
+                if (parent != null) {
+                    parent.addChild(node);
+                } else {
+
+                    // parent non trouvé → par sécurité à accrocher à la racine
+                    root.addChild(node);
+                }
+            }
+        }
+        return root;
+    }
+
+
+    /**
+     * Parse un JSON de type:
+     *   [ { "id":1, "name":"Docs", "parent_id":null }, ... ]
+     * ou un seul objet:
+     *   { "id":1, "name":"Docs", "parent_id":null, ... }
+     */
+    /**
+     * Parse un JSON de dossiers (tableau ou objet) en liste de FolderDto (id/name/parentId)
+     * Parse un JSON de type:
+     *   [ { "id":1, "name":"Docs", "parent_id":null }, ... ]
+     * ou un seul objet:
+     *   { "id":1, "name":"Docs", "parent_id":null, ... }
+     * @param json
+     * @return
+     */
+    private List<FolderDto> parseFolders(String json) {
+        List<FolderDto> result = new ArrayList<>();
+        if (json == null || json.isBlank()) return result;
+
+        String trimmed = json.trim();
+
+        String[] parts;
+
+        if (trimmed.startsWith("[")) {    // => tableau: [ {...}, {...} ]
+
+            // enlever les crochets
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+            if (trimmed.isBlank()) return result;
+
+            // découper à la grosse: "},{"
+            parts = trimmed.split("\\},\\s*\\{"); //=> les objets séparés par } , {
+        } else {
+
+            //un seul objet: { ... }
+            parts = new String[]{ trimmed };
+        }
+
+        for (String part : parts) {
+            String objet = part.trim();
+            if (!objet.startsWith("{")) objet = "{" + objet;
+            if (!objet.endsWith("}")) objet = objet + "}";
+
+            FolderDto dto = new FolderDto();
+
+            // "id": 1
+            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
+
+            if (idStr != null) {
+                dto.id = Integer.parseInt(idStr);
+            }
+
+            // "name": "Documents"
+            dto.name = JsonUtils.extractJsonField(objet, "name");
+
+            // "parent_id": null ou un nombre
+            String parentStr = JsonUtils.extractJsonNumberField(objet, "parent_id");
+            if (parentStr != null) {
+                dto.parentId = Integer.parseInt(parentStr);
+            } else {
+                dto.parentId = null; // parent_id null => dossier racine
+            }
+            result.add(dto);
+        }
+        return result;
+    }
+
+    /**
+     * Parse un JSON de fichiers en liste de FileEntry (id, nom, taille, date)
+     * @param json
+     * @return
+     */
+    private List<FileEntry> parseFiles(String json) {
+        List<FileEntry> result = new ArrayList<>();
+        if (json == null || json.isBlank()) return result;
+
+        String trimmed = json.trim();
+        String[] parts;
+
+        if (trimmed.startsWith("[")) {
+
+            // Cas tableau: [ {...}, {...} ]
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+            if (trimmed.isBlank()) return result;
+
+            // découpe grossière sur "},{"
+            parts = trimmed.split("\\},\\s*\\{");
+        } else {
+
+            //un seul objet: { ... }
+            parts = new String[]{ trimmed };
+        }
+
+        // découper à la grosse: "},{"
+        String[] filesParts = trimmed.split("\\},\\s*\\{");
+
+        for (String part : filesParts) {
+            String objet = part.trim();
+            if (!objet.startsWith("{")) objet = "{" + objet;
+            if (!objet.endsWith("}")) objet = objet + "}";
+
+
+            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
+            String name = JsonUtils.extractJsonField(objet, "original_name");
+            String sizeStr = JsonUtils.extractJsonNumberField(objet, "size");
+            String date = JsonUtils.extractJsonField(objet, "created_at");
+            String updatedDate =  JsonUtils.extractJsonField(objet, "updated_at");
+
+            int id = (idStr != null) ? Integer.parseInt(idStr) : 0;
+            long size = (sizeStr != null )? Long.parseLong(sizeStr) : 0L;
+
+            if (name == null) {
+                // sécurité : si jamais ton API change de champ un jour
+                name = JsonUtils.extractJsonField(objet, "name");
+            }
+
+            result.add(FileEntry.of(id, name, size, date, updatedDate));
+        }
+        return result;
+    }
+
+    /**
+     * Construit le body multipart/form-data (folder_id optionnel + part 'file') pour les uploads
+     * @param file
+     * @param boundary
+     * @return
+     * @throws Exception
+     */
+    private byte[] buildMultipartBody(File file, String boundary, Integer folderId) throws Exception {
+        String CRLF = "\r\n";
+
+        String mimeType = Files.probeContentType(file.toPath());
+        if (mimeType == null) {
+            mimeType = "application/octet-stream"; // fallback
+        }
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        // ---- Partie "folder_id" (si fourni)
+        if (folderId != null) {
+            String folderPart =
+                    "--" + boundary + CRLF +
+                            "Content-Disposition: form-data; name=\"folder_id\"" + CRLF + CRLF +
+                            folderId + CRLF;
+
+            output.write(folderPart.getBytes(StandardCharsets.UTF_8));
+        }
+
+        // ---- Partie "file"
+        String filePartHeader =
+                "--" + boundary + CRLF +
+                        "Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + CRLF +
+                        "Content-Type: " + mimeType + CRLF + CRLF;
+
+        output.write(filePartHeader.getBytes(StandardCharsets.UTF_8));
+
+        byte[] fileBytes = Files.readAllBytes(file.toPath());
+        output.write(fileBytes);
+
+        // Fin de la part fichier
+        output.write(CRLF.getBytes(StandardCharsets.UTF_8));
+
+        // ---- Fin multipart
+        String ending = "--" + boundary + "--" + CRLF;
+        output.write(ending.getBytes(StandardCharsets.UTF_8));
+
+        return output.toByteArray();
+    }
+
+
+    /**
+     * Échappe les caractères spéciaux pour insérer une valeur proprement dans une chaîne JSON
+     * @param value
+     * @return
+     */
+    private String escapeJson(String value) {
+        if (value == null) return "";
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+    }
+
+    /**
+     * uploader un fichier dans le dossier racine par défaut
+     * @param file
+     * @return
+     * @throws Exception
+     */
+    public boolean uploadFile(File file) throws Exception{
+        //s'il n'y a pas dossier => passer en null
+        return uploadFile(file, null);
+    }
+
+    /**
+     * Exception levée en cas d’erreur d’authentification (token manquant/invalide, accès refusé)
+     */
+    public static class AuthenticationException extends Exception {
+        public AuthenticationException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Exception levée en cas d’échec d’inscription ou de connexion automatique après inscription
+     */
+    public static class RegistrationException extends Exception {
+        public RegistrationException(String message) {
+            super(message);
+        }
+    }
+
+
+    /**
+     * BodyPublisher wrapper qui comptabilise les octets envoyés et notifie un ProgressListener pendant l’upload
+     */
+    private static class ProgressBodyPublisher implements HttpRequest.BodyPublisher {
+        private final HttpRequest.BodyPublisher delegate;
+        private final long totalBytes;
+        private final ProgressListener listener;
+
+        ProgressBodyPublisher(HttpRequest.BodyPublisher delegate, long totalBytes, ProgressListener listener) {
+            this.delegate = delegate;
+            this.totalBytes = totalBytes;
+            this.listener = listener;
+        }
+
+        @Override
+        public long contentLength() {
+            return totalBytes >= 0 ? totalBytes : delegate.contentLength();
+        }
+
+        @Override
+        public void subscribe(Flow.Subscriber<? super ByteBuffer> subscriber) {
+            delegate.subscribe(new Flow.Subscriber<>() {
+                long sent = 0;
+
+                @Override
+                public void onSubscribe(Flow.Subscription subscription) {
+                    subscriber.onSubscribe(subscription);
+                    if (listener != null) listener.onProgress(0, totalBytes);
+                }
+
+                @Override
+                public void onNext(ByteBuffer item) {
+                    sent += item.remaining();
+                    if (listener != null) listener.onProgress(sent, totalBytes);
+                    subscriber.onNext(item);
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    subscriber.onError(throwable);
+                }
+
+                @Override
+                public void onComplete() {
+                    if (listener != null) listener.onProgress(totalBytes, totalBytes);
+                    subscriber.onComplete();
+                }
+            });
+        }
+    }
+
+
 
 
 
