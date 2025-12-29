@@ -12,7 +12,9 @@ public final class UIDialogs {
 
 
     /**
-     * Afficher une information
+     *  Afficher une information
+     * @param title
+     * @param content
      */
     public static void showInfo(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
@@ -22,7 +24,7 @@ public final class UIDialogs {
 
         Label icon = new Label("i");
         icon.setStyle(
-                "-fx-background-color: #980b0b;" +
+                "-fx-background-color: #0d5c05;" +
                         "-fx-text-fill: white;" +
                         "-fx-font-weight: bold;" +
                         "-fx-alignment: center;" +
@@ -33,7 +35,7 @@ public final class UIDialogs {
         );
         alert.setGraphic(icon);
 
-        styleOkButton(alert);
+        styleOkButtonInfo(alert);
 
         alert.showAndWait();
     }
@@ -41,6 +43,8 @@ public final class UIDialogs {
 
     /**
      * Afficher une erreur
+     * @param title
+     * @param content
      */
     public static void showError(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -61,17 +65,38 @@ public final class UIDialogs {
         );
         alert.setGraphic(icon);
 
-        styleOkButton(alert);
+        styleOkButtonError(alert);
 
         alert.showAndWait();
     }
 
-    private static void styleOkButton(Alert alert) {
+    /**
+     * Applique un style CSS personnalisé au bouton OK d’une Alert JavaFX (couleur, texte, graisse et curseur)
+     * @param alert
+     */
+    private static void styleOkButtonError(Alert alert) {
         DialogPane pane = alert.getDialogPane();
         Button okBtn = (Button) pane.lookupButton(ButtonType.OK);
         if (okBtn != null) {
             okBtn.setStyle(
                     "-fx-background-color: #980b0b;" +
+                            "-fx-text-fill: white;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-cursor: hand;"
+            );
+        }
+    }
+
+    /**
+     * Applique un style CSS personnalisé au bouton OK d’une Alert JavaFX (couleur, texte, graisse et curseur)
+     * @param alert
+     */
+    private static void styleOkButtonInfo(Alert alert) {
+        DialogPane pane = alert.getDialogPane();
+        Button okBtn = (Button) pane.lookupButton(ButtonType.OK);
+        if (okBtn != null) {
+            okBtn.setStyle(
+                    "-fx-background-color: #0d5c05;" +
                             "-fx-text-fill: white;" +
                             "-fx-font-weight: bold;" +
                             "-fx-cursor: hand;"

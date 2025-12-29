@@ -147,7 +147,10 @@
         </VBox>
 
         <!-- Barre de progression (cachée par défaut) -->
-        <VBox fx:id="progressContainer" managed="false" spacing="5" visible="false">
+        <VBox fx:id="progressContainer"
+              managed="false"
+              spacing="5"
+              visible="false">
             <HBox alignment="CENTER_LEFT" spacing="10">
                 <Label fx:id="progressLabel"
                        style="-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 12px;"
@@ -169,7 +172,10 @@
                                 radius="2.0"
                                 width="5.0">
                         <color>
-                            <Color red="0.6" green="0.04" blue="0.04" opacity="0.2" />
+                            <Color red="0.6"
+                                   green="0.04"
+                                   blue="0.04"
+                                   opacity="0.2" />
                         </color>
                     </DropShadow>
                 </effect>

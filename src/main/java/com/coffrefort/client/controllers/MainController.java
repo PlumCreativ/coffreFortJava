@@ -194,15 +194,16 @@ public class MainController {
                 }
             });
 
+            MenuItem downloadItem = new MenuItem("Télécharger");
+            downloadItem.setOnAction(e -> {
+                FileEntry file = row.getItem();
+                if (file != null) {
+                    handleDownload(file);
+                }
+            });
+
+
 //            au cas ou pour plus tard, si je veux changer...
-//            MenuItem downloadItem = new MenuItem("Télécharger");
-//            downloadItem.setOnAction(e -> {
-//                FileEntry file = row.getItem();
-//                if (file != null) {
-//                    handleDownload(file);
-//                }
-//            });
-//
 //            MenuItem deleteItem = new MenuItem("Supprimer...");
 //            deleteItem.setOnAction(e -> {
 //                FileEntry file = row.getItem();
@@ -212,7 +213,7 @@ public class MainController {
 //                }
 //            });
 
-            contextMenu.getItems().addAll(renameItem);
+            contextMenu.getItems().addAll(renameItem, downloadItem);
 
             //affichage le menu => que si la ligne n'est pas vide
             row.contextMenuProperty().bind(
@@ -221,11 +222,11 @@ public class MainController {
                             .otherwise(contextMenu)
             );
 
-            //download en double cliquant dessus
+            //ouvrir les détails d'un fichier en double cliquant dessus
             row.setOnMouseClicked(event -> {
                 if(event.getClickCount() ==2 && !row.isEmpty()){
                     FileEntry selected = row.getItem();
-                    handleDownload(selected);
+                    openFileDetailsDialog(selected);
                 }
             });
             return row;
@@ -1209,7 +1210,7 @@ public class MainController {
     }
 
 //    /**
-//     * afficher les erreurs
+//     * afficher les erreurs => à supprimer si ça marche!!!!!!!!
 //     * @param title
 //     * @param content
 //     */
@@ -1307,7 +1308,8 @@ public class MainController {
             Stage dialogStage = new Stage();
             dialogStage.setTitle("Renommer le fichier");
             dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(treeView.getScene().getWindow());
+//            dialogStage.initOwner(treeView.getScene().getWindow()); ???????????????
+            dialogStage.initOwner(table.getScene().getWindow());
             dialogStage.setResizable(false);
             dialogStage.setScene(new Scene(root));
 
@@ -1344,6 +1346,49 @@ public class MainController {
             System.err.println("Erreur lors du chargement de renameFile.fxml");
             e.printStackTrace();
             UIDialogs.showError("Erreur", "Impossible d'ouvrir renameFile.fxml: " + e.getMessage());
+        }
+    }
+
+
+    private void openFileDetailsDialog (FileEntry file){
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/fileDetails.fxml")
+            );
+
+            Parent root = loader.load();
+
+            // Récupération du contrôleur
+            FileDetailsController controller = loader.getController();
+            controller.setApiClient(apiClient);
+            controller.setFile(file);
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Detail - " + file.getName());
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(table.getScene().getWindow());
+            dialogStage.setResizable(false);
+            dialogStage.setScene(new Scene(root));
+
+            controller.setStage(dialogStage);
+
+            controller.setCurrentName(file.getName());
+
+           controller.setOnVersionUploaded(() -> Platform.runLater(() -> {
+                       if(currentFolder != null) {
+                           loadFiles(currentFolder);
+                       }
+                       updateQuota();
+                       statusLabel.setText("Version remplacée: " + file.getName());
+           }));
+
+            dialogStage.showAndWait();
+
+        }catch (Exception e){
+            System.err.println("Erreur lors du chargement de fileDetails.fxml");
+            e.printStackTrace();
+            UIDialogs.showError("Detail fichier", "Impossible d'ouvrir la fenetre: " + e.getMessage());
         }
     }
 }

@@ -22,12 +22,19 @@
     <top>
         <VBox style="-fx-background-color: white; -fx-border-color: #cccccc; -fx-border-width: 0 0 1 0;">
             <padding>
-                <Insets top="15" right="20" bottom="15" left="20"/>
+                <Insets top="15"
+                        right="20"
+                        bottom="15"
+                        left="20"/>
             </padding>
 
-            <HBox alignment="CENTER_LEFT" spacing="20">
+            <HBox alignment="CENTER_LEFT"
+                  spacing="20">
                 <!-- Logo -->
-                <ImageView fitHeight="60" fitWidth="80" pickOnBounds="true" preserveRatio="true">
+                <ImageView fitHeight="60"
+                           fitWidth="80"
+                           pickOnBounds="true"
+                           preserveRatio="true">
                     <image>
                         <Image url="@/images/Logo_CryptoVault.png"/>
                     </image>
@@ -35,17 +42,28 @@
 
                 <!-- Titre -->
                 <VBox spacing="2" HBox.hgrow="ALWAYS">
-                    <Text text="Coffre-Fort Numérique" fill="#980b0b" style="-fx-font-weight: bold; -fx-font-size: 20px;"/>
-                    <Label fx:id="userEmailLabel" text="user@example.com" style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
+                    <Text text="Coffre-Fort Numérique"
+                          fill="#980b0b"
+                          style="-fx-font-weight: bold; -fx-font-size: 20px;"/>
+                    <Label fx:id="userEmailLabel"
+                           text="user@example.com"
+                           style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
                 </VBox>
 
                 <!-- Quota -->
-                <VBox spacing="5" alignment="CENTER_RIGHT">
-                    <HBox spacing="8" alignment="CENTER_RIGHT">
-                        <Label text="Espace utilisé:" style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
-                        <Label fx:id="quotaLabel" text="0 / 1 GB" styleClass="quota-label"/>
+                <VBox spacing="5"
+                      alignment="CENTER_RIGHT">
+                    <HBox spacing="8"
+                          alignment="CENTER_RIGHT">
+                        <Label text="Espace utilisé:"
+                               style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
+                        <Label fx:id="quotaLabel"
+                               text="0 / 1 GB"
+                               styleClass="quota-label"/>
                     </HBox>
-                    <ProgressBar fx:id="quotaBar" prefWidth="200" prefHeight="8"/>
+                    <ProgressBar fx:id="quotaBar"
+                                 prefWidth="200"
+                                 prefHeight="8"/>
                 </VBox>
 
                 <!-- Bouton déconnexion -->
@@ -63,20 +81,31 @@
 
     <!-- Zone principale avec arborescence et fichiers -->
     <center>
-        <SplitPane dividerPositions="0.25" style="-fx-background-color: #E5E5E5;">
+        <SplitPane dividerPositions="0.25"
+                   style="-fx-background-color: #E5E5E5;">
             <padding>
-                <Insets top="10" right="10" bottom="10" left="10"/>
+                <Insets top="10"
+                        right="10"
+                        bottom="10"
+                        left="10"/>
             </padding>
 
             <!-- Panneau gauche : Arborescence des dossiers -->
-            <VBox spacing="8" style="-fx-background-color: white; -fx-background-radius: 4;">
+            <VBox spacing="8"
+                  style="-fx-background-color: white; -fx-background-radius: 4;">
                 <padding>
-                    <Insets top="10" right="10" bottom="10" left="10"/>
+                    <Insets top="10"
+                            right="10"
+                            bottom="10"
+                            left="10"/>
                 </padding>
 
                 <!-- En-tête dossiers -->
-                <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Text text="Mes dossiers" fill="#980b0b" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <HBox alignment="CENTER_LEFT"
+                      spacing="10">
+                    <Text text="Mes dossiers"
+                          fill="#980b0b"
+                          style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
                     <Region HBox.hgrow="ALWAYS"/>
                     <Button fx:id="newFolderButton"
                             text="+"
@@ -106,14 +135,21 @@
             </VBox>
 
             <!-- Panneau droit : Liste des fichiers -->
-            <VBox spacing="8" style="-fx-background-color: white; -fx-background-radius: 4;">
+            <VBox spacing="8"
+                  style="-fx-background-color: white; -fx-background-radius: 4;">
                 <padding>
-                    <Insets top="10" right="10" bottom="10" left="10"/>
+                    <Insets top="10"
+                            right="10"
+                            bottom="10"
+                            left="10"/>
                 </padding>
 
                 <!-- En-tête fichiers avec actions -->
-                <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Text text="Fichiers" fill="#980b0b" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <HBox alignment="CENTER_LEFT"
+                      spacing="10">
+                    <Text text="Fichiers"
+                          fill="#980b0b"
+                          style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
                     <Region HBox.hgrow="ALWAYS"/>
 
                     <!-- Boutons d'action -->
@@ -160,8 +196,12 @@
                     </columns>
                     <placeholder>
                         <VBox alignment="CENTER" spacing="10">
-                            <Text text="Aucun fichier" fill="#999999" style="-fx-font-size: 14px;"/>
-                            <Text text="Cliquez sur 'Uploader' pour ajouter des fichiers" fill="#cccccc" style="-fx-font-size: 12px;"/>
+                            <Text text="Aucun fichier"
+                                  fill="#999999"
+                                  style="-fx-font-size: 14px;"/>
+                            <Text text="Cliquez sur 'Uploader' pour ajouter des fichiers"
+                                  fill="#cccccc"
+                                  style="-fx-font-size: 12px;"/>
                         </VBox>
                     </placeholder>
                     <effect>

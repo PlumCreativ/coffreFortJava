@@ -131,7 +131,9 @@
         </StackPane>
 
         <!-- Zone message d'erreur -->
-        <Label fx:id="errorLabel" style="-fx-text-fill: #b00000;" GridPane.rowIndex="7">
+        <Label fx:id="errorLabel"
+               style="-fx-text-fill: #b00000;"
+               GridPane.rowIndex="7">
             <GridPane.margin>
                 <Insets />
             </GridPane.margin>

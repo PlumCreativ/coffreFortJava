@@ -9,17 +9,19 @@ public class FileEntry {
     private final String name;
     private final long size;
     private final String  createdAt;
+    private final String updatedAt;
 
     //méthodes
-    private FileEntry(int id, String name, long size, String  createdAt) {
+    private FileEntry(int id, String name, long size, String  createdAt, String updatedAt) {
         this.id = id;
         this.name = name;
         this.size = size;
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
-    public static FileEntry of(int id, String name, long size, String  createdAt) {
-        return new FileEntry(id, name, size, createdAt);
+    public static FileEntry of(int id, String name, long size, String  createdAt, String updatedAt) {
+        return new FileEntry(id, name, size, createdAt, updatedAt);
     }
 
     public int getId() { return id; }
@@ -34,16 +36,22 @@ public class FileEntry {
     }
 
     //pour la TableView => colonne taille
+
+    /**
+     * Formate une taille en octets en unité lisible (B, KB, MB, GB, …) avec une décimale
+     * @return
+     */
     public String getFormattedSize() {
-        if (size < 1024) return size + " B";                //=> size "bytes"
-        int exp = (int) (Math.log(size) / Math.log(1024));  // => exposant
+        long bytes = size;
+        if (bytes < 1024) return bytes + " B";                //=> size "bytes"
+        int exp = (int) (Math.log(bytes) / Math.log(1024));  // => exposant
         char unit = "KMGTPE".charAt(exp - 1);               //p.ex exp=1 -> "K"
-        double val = size / Math.pow(1024, exp);            // Math.pow => val = 2048 / 1024 = 2.0 KB
+        double val = bytes / Math.pow(1024, exp);            // Math.pow => val = 2048 / 1024 = 2.0 KB
         return String.format("%.1f %sB", val, unit);
     }
 
     //Pour la TableView => colonne date
     public String getUpdatedAtFormatted() {
-        return createdAt != null ? createdAt : "";
+        return updatedAt != null ? updatedAt : "";
     }
 }

@@ -5,7 +5,12 @@ import java.util.Base64;
 
 public class JwtUtils {
 
-    //décoder en json le payload qui est encodé en Base64URL
+
+    /**
+     * Décode la partie payload d’un JWT ( encodé en Base64URL) et la retourne en JSON sous forme de String
+     * @param jwt
+     * @return
+     */
     public static String decodePayload(String jwt){
         if(jwt == null || jwt.isEmpty()) return null;
 
@@ -27,7 +32,12 @@ public class JwtUtils {
 
     }
 
-    //récupérer la valeur du champ "email" dans le payload JSON
+
+    /**
+     * Extrait le champ "email" du payload du JWT décodé
+     * @param jwt
+     * @return
+     */
     public static String extractEmail(String jwt){
         String json = decodePayload(jwt);
         if(json == null) return null;
@@ -36,7 +46,12 @@ public class JwtUtils {
         return JsonUtils.extractJsonField(json, "email");
     }
 
-    //récupérer la valeur du champ "user_id" dans le payload JSON
+
+    /**
+     * Extrait le champ numérique "user_id" du payload du JWT décodé
+     * @param jwt
+     * @return
+     */
     public static String extractUserID(String jwt){
         String json = decodePayload(jwt);
         if(json == null) return null;
@@ -46,7 +61,9 @@ public class JwtUtils {
     }
 
 
-
+    /**
+     * Empêche l’instanciation de la classe utilitaire JwtUtils
+     */
     private JwtUtils(){};
 }
 

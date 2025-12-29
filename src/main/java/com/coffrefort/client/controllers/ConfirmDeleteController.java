@@ -21,31 +21,53 @@ public class ConfirmDeleteController {
 
     //méthodes
     @FXML
+    /**
+     * Initialise le contrôleur au chargement FXML (point d’extension pour logs ou configuration)
+     */
     private void initialize() {
         // on peut ajouter du log si besoin
     }
 
-    /** Injecté par la vue (ou MainController) pour fermer la fenêtre */
+
+    /**
+     * Injecte le Stage de la fenêtre de confirmation afin de pouvoir la fermer depuis le contrôleur
+     * @param dialogStage
+     */
     public void setDialogStage(Stage dialogStage) {
         this.dialogStage = dialogStage;
     }
 
-    /** Permet d'afficher le nom du fichier sélectionné */
+
+    /**
+     * Affiche dans le dialogue le nom du fichier sélectionné pour confirmer la suppression
+     * @param fileName
+     */
     public void setFileName(String fileName) {
         if (fileNameLabel != null) {
             fileNameLabel.setText(fileName != null ? fileName : "");
         }
     }
 
+    /**
+     * Définit le callback à exécuter lorsque l’utilisateur annule la suppression
+     * @param onCancel
+     */
     public void setOnCancel(Runnable onCancel) {
         this.onCancel = onCancel;
     }
 
+    /**
+     * Définit le callback à exécuter lorsque l’utilisateur confirme la suppression
+     * @param onConfirm
+     */
     public void setOnConfirm(Runnable onConfirm) {
         this.onConfirm = onConfirm;
     }
 
     @FXML
+    /**
+     * Gère le clic sur “Annuler” en exécutant le callback puis en fermant la fenêtre
+     */
     private void handleCancel() {
         if (onCancel != null) {
             onCancel.run();
@@ -54,6 +76,9 @@ public class ConfirmDeleteController {
     }
 
     @FXML
+    /**
+     * Gère le clic sur “Confirmer” en exécutant le callback puis en fermant la fenêtre
+     */
     private void handleConfirm() {
         if (onConfirm != null) {
             onConfirm.run();
@@ -61,6 +86,9 @@ public class ConfirmDeleteController {
         close();
     }
 
+    /**
+     * Ferme la fenêtre de dialogue (Stage injecté, sinon récupération via le bouton en fallback)
+     */
     private void close() {
         if (dialogStage != null) {
             dialogStage.close();

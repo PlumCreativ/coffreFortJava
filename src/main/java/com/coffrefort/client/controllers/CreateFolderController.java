@@ -28,6 +28,9 @@ public class CreateFolderController {
 
     //méthodes
     @FXML
+    /**
+     * Initialise l’état de l’UI en masquant le label d’erreur au chargement de la vue
+     */
     private void initialize() {
         if (errorLabel != null) {
             errorLabel.setText("");
@@ -36,22 +39,35 @@ public class CreateFolderController {
         }
     }
 
+    /**
+     * Injecte le Stage de la fenêtre modale pour permettre sa fermeture depuis le contrôleur
+     * @param dialogStage
+     */
     public void setDialogStage(Stage dialogStage) {
         this.dialogStage = dialogStage;
     }
 
-    /** Sera appelé avec le nom du dossier quand l'utilisateur clique sur "Créer". */
+
+    /**
+     * Définit le callback appelé avec le nom du dossier lorsque l’utilisateur valide la création.
+     * @param onCreateFolder
+     */
     public void setOnCreateFolder(Consumer<String> onCreateFolder) {
         this.onCreateFolder = onCreateFolder;
     }
 
-    /** Sera appelé quand l'utilisateur clique sur "Annuler". */
+
+    /**
+     * Définit le callback exécuté lorsque l’utilisateur annule la création du dossier
+     * @param onCancel
+     */
     public void setOnCancel(Runnable onCancel) {
         this.onCancel = onCancel;
     }
 
+
     /**
-     * Gestion l'annulation de création d'un folder
+     * Gère l’annulation en nettoyant l’erreur, exécutant le callback éventuel, puis en fermant la fenêtre
      */
     @FXML
     private void handleCancel() {
@@ -69,7 +85,7 @@ public class CreateFolderController {
 
 
     /**
-     * Gestion de la création d'un folder
+     * Valide le nom saisi, affiche une erreur si invalide, sinon déclenche le callback de création et ferme la fenêtre.
      */
     @FXML
     private void handleCreate() {
@@ -127,6 +143,10 @@ public class CreateFolderController {
 
     // --- Gestion des erreurs ---
 
+    /**
+     * Affiche un message d’erreur dans l’UI en rendant le label visible
+     * @param message
+     */
     private void showError(String message) {
         if (errorLabel == null) return;
 
@@ -135,6 +155,9 @@ public class CreateFolderController {
         errorLabel.setManaged(true);
     }
 
+    /**
+     * Efface et masque le message d’erreur dans l’UI
+     */
     private void clearError() {
         if (errorLabel == null) return;
 

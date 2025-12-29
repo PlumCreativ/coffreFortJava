@@ -25,30 +25,48 @@ public class ShareController {
     private Runnable onCancel;
 
     @FXML
+    /**
+     * Initialise l’UI (masque l’erreur) et déclenche le partage si l’utilisateur appuie sur Entrée dans le champ destinataire
+     */
     private void initialize() {
         hideError();
 
-        // Optionnel : appuyer sur Entrée dans le champ lance le partage ??
+        //appuyer sur Entrée dans le champ lance le partage ??
         recipientField.setOnAction(e -> handleShare());
     }
 
-    /** Permet au code qui ouvre la fenêtre de fournir le Stage pour pouvoir la fermer */
+
+    /**
+     * Injecte le Stage de la fenêtre modale pour pouvoir la fermer depuis le contrôleur
+     * @param stage
+     */
     public void setStage(Stage stage) {
         this.stage = stage;
     }
 
-    /** Affiche le nom de l'élément à partager */
+
+    /**
+     * Affiche le nom de l’élément (fichier/dossier) à partager dans l’interface
+     * @param name
+     */
     public void setItemName(String name) {
         itemNameLabel.setText(name != null ? name : "");
     }
 
-    /** Définit l'action à exécuter quand l'utilisateur clique sur "Partager" */
+
+    /**
+     * Définit le callback appelé lors de la validation du partage avec les paramètres saisis
+     * @param onShare
+     */
     public void setOnShare(Consumer<String> onShare) {
         this.onShare = onShare;
     }
 
 
     @FXML
+    /**
+     * Valide les champs (destinataire, maxUses, expiration), puis appelle le callback et ferme la fenêtre
+     */
     private void handleShare() {
         String recipient = (recipientField.getText() == null) ? "" : recipientField.getText().trim();
 
@@ -93,12 +111,19 @@ public class ShareController {
         }
     }
 
+    /**
+     * Affiche un message d’erreur dans l’UI en rendant le label visible
+     * @param msg
+     */
     private void showError(String msg) {
         errorLabel.setText(msg);
         errorLabel.setManaged(true);
         errorLabel.setVisible(true);
     }
 
+    /**
+     * Efface et masque le message d’erreur dans l’UI
+     */
     private void hideError() {
         errorLabel.setText("");
         errorLabel.setManaged(false);
@@ -106,6 +131,9 @@ public class ShareController {
     }
 
     @FXML
+    /**
+     * Gère le clic sur “Annuler” en exécutant le callback éventuel puis en fermant la fenêtre
+     */
     private void handleCancel() {
         if (onCancel != null) {
             onCancel.run();
@@ -113,6 +141,9 @@ public class ShareController {
         close();
     }
 
+    /**
+     * Ferme la fenêtre de partage (Stage injecté sinon récupération via le bouton en fallback)
+     */
     private void close() {
         if (stage != null) {
             stage.close();
