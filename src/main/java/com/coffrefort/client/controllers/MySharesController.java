@@ -85,7 +85,7 @@ public class MySharesController {
             System.err.println("MySharesController - ERREUR lors du chargement: " + e.getMessage());
 
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible de charger les partages: " + e.getMessage());
+            UIDialogs.showError("Erreur", null, "Impossible de charger les partages: " + e.getMessage());
         }
     }
 
@@ -111,38 +111,39 @@ public class MySharesController {
                     content.putString(url);
                     javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
 
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                    alert.setTitle("Information");
-                    alert.setHeaderText(null);
-                    alert.setContentText("Lien copié dans le presse-papier !");
+                    UIDialogs.showInfo("Information",null,  "Lien copié dans le presse-papier !");
+//                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+//                    alert.setTitle("Information");
+//                    alert.setHeaderText(null);
+//                    alert.setContentText("Lien copié dans le presse-papier !");
 
                     //Remplacer l'icône par un "i" bordeaux
-                    Label icon = new Label("i");
-                    icon.setStyle(
-                            "-fx-background-color: #980b0b;" +
-                            "-fx-text-fill: white;" +
-                            "-fx-font-weight: bold;" +
-                            "-fx-alignment: center;" +
-                            "-fx-min-width: 28px;" +
-                            "-fx-min-height: 28px;" +
-                            "-fx-background-radius: 11px;" +
-                            "-fx-font-size: 14px;"
-                    );
-                    alert.setGraphic(icon);
-
-                    DialogPane pane = alert.getDialogPane();
-
-                    // Bouton OK
-                    Button okBtn = (Button) pane.lookupButton(ButtonType.OK);
-                    if (okBtn != null) {
-                        okBtn.setStyle(
-                                "-fx-background-color: #980b0b;" +
-                                "-fx-text-fill: white;" +
-                                "-fx-font-weight: bold;" +
-                                "-fx-cursor: hand;"
-                        );
-                    }
-                    alert.showAndWait();
+//                    Label icon = new Label("i");
+//                    icon.setStyle(
+//                            "-fx-background-color: #980b0b;" +
+//                            "-fx-text-fill: white;" +
+//                            "-fx-font-weight: bold;" +
+//                            "-fx-alignment: center;" +
+//                            "-fx-min-width: 28px;" +
+//                            "-fx-min-height: 28px;" +
+//                            "-fx-background-radius: 11px;" +
+//                            "-fx-font-size: 14px;"
+//                    );
+//                    alert.setGraphic(icon);
+//
+//                    DialogPane pane = alert.getDialogPane();
+//
+//                    // Bouton OK
+//                    Button okBtn = (Button) pane.lookupButton(ButtonType.OK);
+//                    if (okBtn != null) {
+//                        okBtn.setStyle(
+//                                "-fx-background-color: #980b0b;" +
+//                                "-fx-text-fill: white;" +
+//                                "-fx-font-weight: bold;" +
+//                                "-fx-cursor: hand;"
+//                        );
+//                    }
+//                    alert.showAndWait();
                 });
 
                 // Initialisation du bouton révoquer
@@ -169,145 +170,33 @@ public class MySharesController {
     }
 
     /**
-     * Révoquer un partage
+     * révoquer une partage
+     * @param item
      */
     private void revokeShare(ShareItem item) {
-        Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmation.setTitle("Confirmer la revocation");
-        confirmation.setHeaderText("Revoquer le partage de: " + item.getResource());
-        confirmation.setContentText("\"Voulez-vous vraiment revoquer ce partage ?\"");
-
-        //Icône bordeaux
-        Label icon = new Label("!");
-        icon.setStyle(
-                "-fx-background-color: #980b0b;" +
-                "-fx-text-fill: white;" +
-                "-fx-font-weight: bold;" +
-                "-fx-alignment: center;" +
-                "-fx-min-width: 28px;" +
-                "-fx-min-height: 28px;" +
-                "-fx-background-radius: 11px;" +
-                "-fx-font-size: 14px;"
+        boolean confirmed = UIDialogs.showConfirmation(
+                "Confirmer la révocation",
+                "Révoquer le partage de : " + item.getResource(),
+                "Voulez-vous vraiment révoquer ce partage ?"
         );
-        confirmation.setGraphic(icon);
 
-        DialogPane pane = confirmation.getDialogPane();
-        pane.setStyle("-fx-background-color: #E5E5E5;");
+        if(!confirmed) return;
 
-        //les boutons annuler/révoquer
-        ButtonType revoqueType = new ButtonType("Révoquer", ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancelType = new ButtonType("Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
-        confirmation.getButtonTypes().setAll(revoqueType, cancelType);
-
-        Button revokeBtn = (Button) pane.lookupButton(revoqueType);
-        if(revokeBtn != null) {
-            revokeBtn.setStyle(
-                    "-fx-background-color: #980b0b;" +
-                    "-fx-text-fill: white;" +
-                    "-fx-font-weight: bold;" +
-                    "-fx-cursor: hand;"
-            );
+        try {
+            apiClient.revokeShare(item.getId());
+            loadShares(); // Recharger la liste
+            UIDialogs.showInfo("Succès", null, "Le partage a été révoqué.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null, "Impossible de révoquer le partage: " + e.getMessage());
         }
 
-        Button cancelBtn = (Button) pane.lookupButton(cancelType);
-        if(cancelBtn != null) {
-            cancelBtn.setStyle(
-                    "-fx-background-color: #cccccc;" +
-                    "-fx-text-fill: #333333;" +
-                    "-fx-cursor: hand;"
-            );
-        }
-
-        confirmation.showAndWait().ifPresent(button -> {
-            if (button == revoqueType) {
-                try {
-                    apiClient.revokeShare(item.getId());
-                    loadShares(); // Recharger la liste
-                    UIDialogs.showInfo("Succès", "Le partage a ete revoque.");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    UIDialogs.showError("Erreur", "Impossible de revoquer le partage: " + e.getMessage());
-                }
-            }
-        });
     }
 
     public void setStage(Stage stage) {
         this.stage = stage;
     }
 
-//    /**
-//     * Afficher une erreur
-//     */
-//    private void showError(String title, String content) {
-//        Alert alert = new Alert(Alert.AlertType.ERROR);
-//        alert.setTitle(title);
-//        alert.setHeaderText(null);
-//        alert.setContentText(content);
-//
-//        //Remplacer l'icône par un "i" bordeaux
-//        Label icon = new Label("!");
-//        icon.setStyle(
-//                "-fx-background-color: #980b0b;" +
-//                "-fx-text-fill: white;" +
-//                "-fx-font-weight: bold;" +
-//                "-fx-alignment: center;" +
-//                "-fx-min-width: 28px;" +
-//                "-fx-min-height: 28px;" +
-//                "-fx-background-radius: 11px;" +
-//                "-fx-font-size: 14px;"
-//        );
-//        alert.setGraphic(icon);
-//
-//        // Style bouton OK
-//        DialogPane pane = alert.getDialogPane();
-//        Button okBtn = (Button) pane.lookupButton(ButtonType.OK);
-//        if (okBtn != null) {
-//            okBtn.setStyle(
-//                    "-fx-background-color: #980b0b;" +
-//                    "-fx-text-fill: white;" +
-//                    "-fx-font-weight: bold;" +
-//                    "-fx-cursor: hand;"
-//            );
-//        }
-//        alert.showAndWait();
-//    }
-//
-//    /**
-//     * Afficher une information
-//     */
-//    private void showInfo(String title, String content) {
-//        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-//        alert.setTitle(title);
-//        alert.setHeaderText(null);
-//        alert.setContentText(content);
-//
-//        //Remplacer l'icône par un "i" bordeaux
-//        Label icon = new Label("i");
-//        icon.setStyle(
-//                "-fx-background-color: #980b0b;" +
-//                "-fx-text-fill: white;" +
-//                "-fx-font-weight: bold;" +
-//                "-fx-alignment: center;" +
-//                "-fx-min-width: 28px;" +
-//                "-fx-min-height: 28px;" +
-//                "-fx-background-radius: 11px;" +
-//                "-fx-font-size: 14px;"
-//        );
-//        alert.setGraphic(icon);
-//
-//        // Style bouton OK
-//        DialogPane pane = alert.getDialogPane();
-//        Button okBtn = (Button) pane.lookupButton(ButtonType.OK);
-//        if (okBtn != null) {
-//            okBtn.setStyle(
-//                    "-fx-background-color: #980b0b;" +
-//                    "-fx-text-fill: white;" +
-//                    "-fx-font-weight: bold;" +
-//                    "-fx-cursor: hand;"
-//            );
-//        }
-//        alert.showAndWait();
-//    }
+
 }
 

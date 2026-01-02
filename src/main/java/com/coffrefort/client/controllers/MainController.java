@@ -409,7 +409,7 @@ public class MainController {
                 e.printStackTrace();
 
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Erreur de chargement", "Impossible de charger les données: " + e.getMessage());
+                    UIDialogs.showError("Erreur de chargement", null, "Impossible de charger les données: " + e.getMessage());
                     statusLabel.setText("Erreur de chargement");
                 });
             }
@@ -460,7 +460,7 @@ public class MainController {
             }catch(Exception e){
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Erreur", "Impossible de charger les fichiers: " + e.getMessage());
+                    UIDialogs.showError("Erreur", null, "Impossible de charger les fichiers: " + e.getMessage());
                     statusLabel.setText("Erreur de chargement des fichiers");
                 });
             }
@@ -604,7 +604,7 @@ public class MainController {
     private void handleUpload() {
 
         if(currentQuota != null && currentQuota.getUsed() >= currentQuota.getMax()){
-            UIDialogs.showError("Quota atteint", "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
+            UIDialogs.showError("Quota atteint", null, "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
             return;
         }
 
@@ -646,7 +646,7 @@ public class MainController {
 
         }catch(Exception e){
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre d'upload "+e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre d'upload "+e.getMessage());
         }
     }
 
@@ -702,7 +702,7 @@ public class MainController {
                     } catch (Exception e) {
                         e.printStackTrace();
                         Platform.runLater(() -> {
-                            UIDialogs.showError("Partage", "Erreur " + e.getMessage());
+                            UIDialogs.showError("Partage", null,"Erreur " + e.getMessage());
                             statusLabel.setText("Erreur pendant le partage");
                         });
                     }
@@ -717,7 +717,7 @@ public class MainController {
 
         } catch (Exception e) {
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de partage "+e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de partage "+e.getMessage());
             shareButton.setDisable(false);
         }
     }
@@ -728,43 +728,8 @@ public class MainController {
      * @param url
      */
     private void showShareDialog(String url){
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Partage réusssi");
-        alert.setHeaderText("Lien de partage généré");
 
-        TextArea area = new TextArea(url);
-        area.setEditable(false);
-        area.setWrapText(true);
-        area.setPrefRowCount(3);
-
-        //Remplacer l'icône par un "i" bordeaux
-        Label icon = new Label("i");
-        icon.setStyle(
-                "-fx-background-color: #980b0b;" +
-                        "-fx-text-fill: white;" +
-                        "-fx-font-weight: bold;" +
-                        "-fx-alignment: center;" +
-                        "-fx-min-width: 28px;" +
-                        "-fx-min-height: 28px;" +
-                        "-fx-background-radius: 11px;" +
-                        "-fx-font-size: 14px;"
-        );
-        alert.setGraphic(icon);
-
-        DialogPane pane = alert.getDialogPane();
-        pane.setContent(area);
-
-        // Bouton OK
-        Button okBtn = (Button) pane.lookupButton(ButtonType.OK);
-        if (okBtn != null) {
-            okBtn.setStyle(
-                    "-fx-background-color: #980b0b;" +
-                            "-fx-text-fill: white;" +
-                            "-fx-font-weight: bold;" +
-                            "-fx-cursor: hand;"
-            );
-        }
-        alert.showAndWait();
+        UIDialogs.showInfoUrl("Partage réusssi", "Lien de partage généré", url);
     }
 
 
@@ -805,7 +770,7 @@ public class MainController {
         } catch (Exception e){
             System.err.println("Erreur lors du chargement de confirmDelete.fxml");
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
         } finally {
             deleteButton.setDisable(false);
         }
@@ -843,13 +808,13 @@ public class MainController {
 
                         statusLabel.setText("Fichier supprimé: " + file.getName());
                     } else {
-                        UIDialogs.showError("Erreur", "Impossible de supprimer le fichier.");
+                        UIDialogs.showError("Erreur", null, "Impossible de supprimer le fichier.");
                         statusLabel.setText("Erreur de suppression");
                     }
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Erreur", "Erreur: " + e.getMessage());
+                    UIDialogs.showError("Erreur", null, "Erreur: " + e.getMessage());
                     statusLabel.setText("Erreur de suppression");
                 });
             }
@@ -901,7 +866,7 @@ public class MainController {
             }catch (Exception e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Téléchargement", "Impossible de télécharger: " + e.getMessage());
+                    UIDialogs.showError("Téléchargement", null, "Impossible de télécharger: " + e.getMessage());
                     statusLabel.setText("Erreur de téléchargement");
                 });
             }
@@ -934,13 +899,13 @@ public class MainController {
                         loadData(); // Recharger l'arborescence
                         statusLabel.setText("Dossier créé: " + name);
                     } else {
-                        UIDialogs.showError("Erreur", "Impossible de créer le dossier.");
+                        UIDialogs.showError("Erreur", null, "Impossible de créer le dossier.");
                         statusLabel.setText("Erreur de création");
                     }
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Erreur", "Erreur: " + e.getMessage());
+                    UIDialogs.showError("Erreur", null,"Erreur: " + e.getMessage());
                     statusLabel.setText("Erreur de création");
                 });
             }
@@ -977,7 +942,7 @@ public class MainController {
         }catch (Exception e){
             System.err.println("Erreur lors du chargement de createFolder.fxml");
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de création: " + e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de création: " + e.getMessage());
         }
     }
 
@@ -1013,7 +978,7 @@ public class MainController {
         }catch (Exception e){
             System.err.println("Erreur lors du chargement de myshares.fxml");
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de Mes partages: " + e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de Mes partages: " + e.getMessage());
         }
 
     }
@@ -1053,7 +1018,7 @@ public class MainController {
         } catch (Exception e){
             System.err.println("Erreur lors du chargement de confirmDeleteFolder.fxml");
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
+            UIDialogs.showError("Erreur", null, "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
         }
 
 //        Optional<ButtonType> result = confirm.showAndWait();
@@ -1092,14 +1057,14 @@ public class MainController {
 
                         statusLabel.setText("Dossier supprimé: " + folder.getName());
                     }else{
-                        UIDialogs.showError("Erreur", "Impossible de supprimer le dossier.");
+                        UIDialogs.showError("Erreur", null, "Impossible de supprimer le dossier.");
                         statusLabel.setText("Erreur de suppression du dossier.");
                     }
                 });
             } catch (Exception e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Erreur", "Erreur lors de la suppression du dossier: " + e.getMessage());
+                    UIDialogs.showError("Erreur", null, "Erreur lors de la suppression du dossier: " + e.getMessage());
                     statusLabel.setText("Erreur de suppression du dossier");
                 });
             }
@@ -1169,11 +1134,13 @@ public class MainController {
                         e.printStackTrace();
 
                         // Afficher un message d'erreur à l'utilisateur
-                        Alert alert = new Alert(Alert.AlertType.ERROR);
-                        alert.setTitle("Erreur");
-                        alert.setHeaderText("Erreur de déconnexion");
-                        alert.setContentText("Impossible de charger l'écran de connexion.");
-                        alert.showAndWait();
+
+                        UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger l'écran de connexion." );
+//                        Alert alert = new Alert(Alert.AlertType.ERROR);
+//                        alert.setTitle("Erreur");
+//                        alert.setHeaderText("Erreur de déconnexion");
+//                        alert.setContentText("Impossible de charger l'écran de connexion.");
+//                        alert.showAndWait();
                     }
                 });
             });
@@ -1185,11 +1152,13 @@ public class MainController {
             e.printStackTrace();
 
             // Afficher un message d'erreur
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Erreur");
-            alert.setHeaderText("Erreur de déconnexion");
-            alert.setContentText("Impossible de charger la fenêtre de confirmation.");
-            alert.showAndWait();
+            UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger la fenêtre de confirmation.");
+
+//            Alert alert = new Alert(Alert.AlertType.ERROR);
+//            alert.setTitle("Erreur");
+//            alert.setHeaderText("Erreur de déconnexion");
+//            alert.setContentText("Impossible de charger la fenêtre de confirmation.");
+//            alert.showAndWait();
 
         } catch (Exception e) {
             System.err.println("Erreur inattendue lors de la déconnexion");
@@ -1209,31 +1178,6 @@ public class MainController {
         return String.format("%.1f %sB", bytes / Math.pow(1024, exp), unit);
     }
 
-//    /**
-//     * afficher les erreurs => à supprimer si ça marche!!!!!!!!
-//     * @param title
-//     * @param content
-//     */
-//    private void showError(String title, String content) {
-//        Alert alert = new Alert(Alert.AlertType.ERROR);
-//        alert.setTitle(title);
-//        alert.setHeaderText(null);
-//        alert.setContentText(content);
-//        alert.showAndWait();
-//    }
-//
-//    /**
-//     * afficher les informations
-//     * @param title
-//     * @param content
-//     */
-//    private void showInfo(String title, String content) {
-//        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-//        alert.setTitle(title);
-//        alert.setHeaderText(null);
-//        alert.setContentText(content);
-//        alert.showAndWait();
-//    }
 
     /**
      * ouvrir le dialog renameFolder.fxml pour renommer un dossier
@@ -1274,7 +1218,7 @@ public class MainController {
                     }catch (Exception e){
                         e.printStackTrace();
                         Platform.runLater(() -> {
-                            UIDialogs.showError("Renommer", "Erreur: " + e.getMessage());
+                            UIDialogs.showError("Renommer", null, "Erreur: " + e.getMessage());
                             statusLabel.setText("Erreur pendant le renommage");
                         });
                     }
@@ -1286,7 +1230,7 @@ public class MainController {
         }catch (Exception e){
             System.err.println("Erreur lors du chargement de renameFolder.fxml");
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir renameFolder.fxml" + e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir renameFolder.fxml" + e.getMessage());
         }
     }
 
@@ -1333,7 +1277,7 @@ public class MainController {
                     }catch (Exception e){
                         e.printStackTrace();
                         Platform.runLater(() -> {
-                            UIDialogs.showError("Renommer", "Erreur: " + e.getMessage());
+                            UIDialogs.showError("Renommer", null,"Erreur: " + e.getMessage());
                             statusLabel.setText("Erreur pendant le renommage");
                         });
                     }
@@ -1345,7 +1289,7 @@ public class MainController {
         }catch (Exception e){
             System.err.println("Erreur lors du chargement de renameFile.fxml");
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir renameFile.fxml: " + e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir renameFile.fxml: " + e.getMessage());
         }
     }
 
@@ -1388,7 +1332,7 @@ public class MainController {
         }catch (Exception e){
             System.err.println("Erreur lors du chargement de fileDetails.fxml");
             e.printStackTrace();
-            UIDialogs.showError("Detail fichier", "Impossible d'ouvrir la fenetre: " + e.getMessage());
+            UIDialogs.showError("Detail fichier", null,"Impossible d'ouvrir la fenetre: " + e.getMessage());
         }
     }
 }
