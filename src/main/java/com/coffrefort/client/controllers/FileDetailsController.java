@@ -9,6 +9,7 @@ import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.ObservableMap;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -61,8 +62,9 @@ public class FileDetailsController {
     private Service<Void> uploadService;
 
     // pour garder une “trace” locale des téléchargements pour activer "ouvrir dossier local"
-    // Map key = "fileId:versionId" -> downloaded file path
-    private final java.util.Map<String, Path> downloadedPaths = new  java.util.HashMap<>();
+    // ObservableMap pour que les bindings JavaFX se mettent à jour
+    // Map key = "fileId:v{versionNumber}" -> downloaded file path
+    private final ObservableMap<String, Path> downloadedPaths = FXCollections.observableHashMap();
 
 
     /**
@@ -116,7 +118,7 @@ public class FileDetailsController {
                 Platform.runLater(() -> {
                     versions.clear();
                     versionsCountLabel.setText("Erreur");
-                    UIDialogs.showError("Erreur", "Impossible de charger: " + e.getMessage());
+                    UIDialogs.showError("Erreur", null, "Impossible de charger: " + e.getMessage());
                 });
             }
         }).start();
@@ -126,14 +128,14 @@ public class FileDetailsController {
      * Rafraîchit l’en-tête du fichier et recharge la liste des versions depuis l’API
      */
     public void refresh(){
-        refrechHeader();
+        refreshHeader();
         loadVersions();
     }
 
     /**
      * Met à jour les informations affichées du fichier (nom, taille, date de modification)
      */
-    private void refrechHeader(){
+    private void refreshHeader(){
 
         if(file == null) return;
 
@@ -177,7 +179,7 @@ public class FileDetailsController {
                 Platform.runLater(() -> {
                     versions.clear();
                     versionsCountLabel.setText("Erreur");
-                    UIDialogs.showError("Erreur", "Impossible de charger les versions " + e.getMessage());
+                    UIDialogs.showError("Erreur", null,"Impossible de charger les versions " + e.getMessage());
                 });
             }
         }).start();
@@ -228,8 +230,9 @@ public class FileDetailsController {
                 Bindings.createBooleanBinding(() -> {
                     VersionEntry sel = versionsTable.getSelectionModel().getSelectedItem();
                     if(sel == null || file == null) return true;
-                    return !downloadedPaths.containsKey(key(file.getId(), sel.getId()));
-                }, versionsTable.getSelectionModel().selectedItemProperty())
+
+                    return !downloadedPaths.containsKey(key(file.getId(), sel.getVersion()));
+                }, versionsTable.getSelectionModel().selectedItemProperty(), downloadedPaths)
         );
 
         // le progress UI caché au début
@@ -280,12 +283,12 @@ public class FileDetailsController {
     private void onReplace(){
 
         if(uploadService != null && uploadService.isRunning()){
-            UIDialogs.showError("Erreur", "Un upload est deja en cours");
+            UIDialogs.showError("Erreur", null,"Un upload est deja en cours");
             return;
         }
 
         if(apiClient == null || file == null) {
-            UIDialogs.showError("Erreur", "API ou fichier non initilalisé");
+            UIDialogs.showError("Erreur", null,"API ou fichier non initilalisé");
             return;
         }
 
@@ -338,16 +341,13 @@ public class FileDetailsController {
 
             replaceButton.setDisable(false);
 
-            //setProgressVisible(true); //=> à laisser lisible pour afficher l'erreur????
-
             //Masquer la progression et nettoyer l'état
             setProgressVisible(false);
 
-            UIDialogs.showError("Upload echoue: ", (ex != null ? ex.getMessage() : "Erreur inconnu"));
+            UIDialogs.showError("Upload echoue: ", null, (ex != null ? ex.getMessage() : "Erreur inconnu"));
         });
 
         uploadService.start();
-
     }
 
     @FXML
@@ -362,7 +362,7 @@ public class FileDetailsController {
 
         String checksum = sel.getChecksum();
         if(checksum == null || checksum.isBlank()){
-            UIDialogs.showError("Erreur", "Checksum indisponible");
+            UIDialogs.showError("Erreur", null, "Checksum indisponible");
             return;
         }
 
@@ -371,7 +371,7 @@ public class FileDetailsController {
         Clipboard.getSystemClipboard().setContent(content);
 
         //feedback
-        UIDialogs.showInfo("Checksum copie", "Le checksum a ete copie dans le presse-papiers.");
+        UIDialogs.showInfo("Checksum copie", null, "Le checksum a ete copie dans le presse-papiers.");
     }
 
     @FXML
@@ -384,26 +384,25 @@ public class FileDetailsController {
         if(sel == null) return;
 
         if(file == null) {
-            UIDialogs.showError("Erreur", "Fichier non initialise.");
+            UIDialogs.showError("Erreur", null, "Fichier non initialise.");
             return;
         }
 
         //chercher le chemin du fichier téléchargé associé au couple (fileId, selId)
-        Path path = downloadedPaths.get(key(file.getId(), sel.getId()));
+        Path path = downloadedPaths.get(key(file.getId(), sel.getVersion()));
         if(path == null){
-            UIDialogs.showError("Erreur", "Cette version n'a pas encore ete telecharge sur ce PC");
+            UIDialogs.showError("Erreur", null, "Cette version n'a pas encore ete telecharge sur ce PC");
             return;
         }
 
         try {
-
             //si "path" est fichier => ouvrir son dossier parent
             // si "path" est un dossier => ouvrir ce dossier
             Path dir = Files.isDirectory(path) ? path : path.getParent();
 
             //vérifier si le dossier existe => p.ex fichier supprimé, disque externe débranché ...
             if (dir == null || !Files.exists(dir)) {
-                UIDialogs.showError("Erreur", "Dossier local introuvable");
+                UIDialogs.showError("Erreur", null, "Dossier local introuvable");
                 return;
             }
 
@@ -414,13 +413,12 @@ public class FileDetailsController {
             }else{
 
                 //p.ex. VM, certaines plateformes
-                UIDialogs.showError("Erreur", "Ouverture du dossier non supportée sur cette plateforme.");
+                UIDialogs.showError("Erreur", null, "Ouverture du dossier non supportée sur cette plateforme.");
             }
         } catch (Exception e) {
             e.printStackTrace();
-            UIDialogs.showError("Erreur", "Impossible d'ouvrir le dossier: " + e.getMessage());
+            UIDialogs.showError("Erreur", null, "Impossible d'ouvrir le dossier: " + e.getMessage());
         }
-
     }
 
 
@@ -444,6 +442,16 @@ public class FileDetailsController {
         //chooser.setInitialFileName(file.getName());
         chooser.setInitialFileName(file.getName() + "_v" + sel.getVersion());
 
+        //pour définir un filtre par extension
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("PDF", "*.pdf"),
+                new FileChooser.ExtensionFilter("Images (*.jpg, *.jpeg, *.png, *.webp)", "*.jpg", "*.jpeg", "*.png", "*.webp"),
+                new FileChooser.ExtensionFilter("Documents Word (*.doc, *.docx)", "*.doc", "*.docx"),
+                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*"));
+
+        //filtre séléctionné par défaut
+        chooser.setSelectedExtensionFilter(chooser.getExtensionFilters().get(0));
+
         File target = chooser.showSaveDialog(stage);
         if(target == null) return;
 
@@ -453,7 +461,6 @@ public class FileDetailsController {
         uploadProgressBar.setProgress(0);
 
         //utilisation d'un Service pour télécharger en tâche de fond
-
         Service<Void> downloadService = new Service<>() {
 
             @Override
@@ -464,11 +471,11 @@ public class FileDetailsController {
                     protected Void call() throws Exception {
                         updateMessage("Downloading version " + sel.getVersion() + "...");
 
-//                        apiClient.downloadFileVersionTo(file.getId(), sel.getVersion(), target, (done, total) -> {
-//                            if(total > 0) {
-//                                updateProgress(done, total);
-//                            }
-//                        });
+                        apiClient.downloadFileVersionTo(file.getId(), sel.getVersion(), target, (done, total) -> {
+                            if(total > 0) {
+                                updateProgress(done, total);
+                            }
+                        });
                         updateMessage("Download complete");
                         updateProgress(1, 1);
                         return null;
@@ -489,13 +496,22 @@ public class FileDetailsController {
             downloadVersionButton.disableProperty().unbind();
             replaceButton.disableProperty().unbind();
 
+            replaceButton.setDisable(false);
+            downloadVersionButton.setDisable(false);
+
+
             setProgressVisible(false);
 
             //enregistrer le chemin local pour activer "ouvrir dossier local"
-            downloadedPaths.put(key(file.getId(), sel.getId()), target.toPath());
+            downloadedPaths.put(key(file.getId(), sel.getVersion()), target.toPath());
 
-            UIDialogs.showInfo("Telechargement", "Versions telechargee: " + target.getAbsolutePath());
+            // optionnel (UI) ?????????
+            versionsTable.refresh();
 
+            // afficher le chemin (sur FX thread)
+            Platform.runLater(() ->
+                    UIDialogs.showInfo("Téléchargement", null, "Version téléchargée :\n" + target.getAbsolutePath())
+            );
         });
 
         downloadService.setOnFailed(event -> {
@@ -506,7 +522,12 @@ public class FileDetailsController {
             downloadVersionButton.disableProperty().unbind();
             replaceButton.disableProperty().unbind();
 
-            UIDialogs.showError("Telechargement echoue: ", (ex != null ? ex.getMessage() : "Erreur inconnu"));
+            replaceButton.setDisable(false);
+            downloadVersionButton.setDisable(false);
+
+            setProgressVisible(false);
+
+            UIDialogs.showError("Téléchargement échoué: ", null,  (ex != null ? ex.getMessage() : "Erreur inconnu"));
         });
 
         downloadService.start();
@@ -540,15 +561,12 @@ public class FileDetailsController {
     /**
      * énère une clé unique pour associer un fichier et une version à un chemin local téléchargé
      * @param fileId
-     * @param versionId
+     * @param versionNumber
      * @return
      */
-    private static String key(long fileId, long versionId){
-        return fileId + ":" + versionId;
+    private static String key(long fileId, int versionNumber){
+        return fileId + ":v" + versionNumber;
     }
-
-
-
 
     //encapsulation Service/Task lié à cette écran
 

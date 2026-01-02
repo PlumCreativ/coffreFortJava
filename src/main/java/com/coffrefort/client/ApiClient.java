@@ -612,6 +612,67 @@ public class ApiClient {
     }
 
 
+    public void downloadFileVersionTo(long fileId, int version,  File target, DownloadProgressListener progress) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(fileId <= 0) throw new IllegalArgumentException("fileId invalide");
+        if(version <= 0) throw new IllegalArgumentException("version invalide");
+        if(target == null) throw new IllegalArgumentException("target invalide");
+
+        String url = baseUrl + "/files/" + fileId + "/versions/" + version + "/download";
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .GET()
+                .header("Authorization", "Bearer " + authToken)
+                .build();
+
+        HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+
+        if(response.statusCode() != 200) {
+
+            //lire le message d'erreur du backend
+            String errorMessage = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
+            throw new RuntimeException("HTTP " +response.statusCode() + " lors du téléchargement: " + errorMessage);
+        }
+
+        long total = -1;
+        String cl = response.headers().firstValue("Content-Length").orElse(null);
+        if(cl != null) {
+            try{
+                total = Long.parseLong(cl); // => convertion p.ex. "84011" → 84011L
+            }catch (Exception ignored){
+                //ingore => total reste -1
+            }
+        }
+
+        //copier le flux HTTP vers le fichier cible + progression
+        //try-with-resources : ferme automatiquement in et out à la fin, même s'il y a erreur.
+        try (InputStream in = response.body();  //=> flux entrant depuis HTTP
+            var out = Files.newOutputStream(target.toPath())) {  //=> flux d'écriture vers le fichier local target
+
+            byte[] buffer = new byte[8192];  //=> tableau 8192 octets => 8kb
+            long done = 0;  //=>nbre octets déjà téléchargé
+            int read;  //=> nbre octets lus par chaque itération
+
+            if(progress != null){
+                progress.onProgress(0, total);
+            }
+
+            while((read = in.read(buffer)) != -1) {  //= retourne -1 si on atteint la fin du flux (EOF)
+                out.write(buffer, 0, read);
+                done += read;                       //=> màj le total téléchargé
+
+                if(progress != null){
+                    progress.onProgress(done, total);
+                }
+            }
+        }
+    }
+
+
     /**
      * Crée un lien de partage via POST /shares et retourne l’URL générée par le backend
      * @param id
@@ -845,6 +906,10 @@ public class ApiClient {
      */
     public interface ProgressListener {
         void onProgress(long sentBytes, long totalBytes);
+    }
+
+    public interface DownloadProgressListener{
+        void onProgress(long done, long total);
     }
 
 
