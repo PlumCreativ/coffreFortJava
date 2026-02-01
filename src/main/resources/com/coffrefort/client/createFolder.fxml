@@ -53,7 +53,11 @@
 
     <!-- Zone de saisie -->
     <VBox spacing="12"
-          style="-fx-background-color: white; -fx-background-radius: 6; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-border-radius: 6;">
+          style="-fx-background-color: white;
+                -fx-background-radius: 6;
+                -fx-border-color: #cccccc;
+                -fx-border-width: 1;
+                -fx-border-radius: 6;">
         <padding>
             <Insets bottom="15" left="15" right="15" top="15" />
         </padding>
@@ -65,7 +69,11 @@
         <!-- Champ de texte -->
         <TextField fx:id="folderNameField"
                    promptText="Entrez le nom du dossier"
-                   style="-fx-background-radius: 4; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-border-radius: 4; -fx-font-size: 13px;">
+                   style="-fx-background-radius: 4;
+                        -fx-border-color: #cccccc;
+                        -fx-border-width: 1;
+                        -fx-border-radius: 4;
+                        -fx-font-size: 13px;">
             <effect>
                 <DropShadow height="5.0"
                             offsetX="1.0"
@@ -81,12 +89,17 @@
                 </DropShadow>
             </effect>
         </TextField>
+    </VBox>
 
+    <VBox alignment="CENTER">
         <!-- Label d'erreur (caché par défaut) -->
         <Label fx:id="errorLabel"
                managed="false"
                visible="false"
-               style="-fx-text-fill: #d32f2f; -fx-font-size: 11px; -fx-font-style: italic;"
+               style="-fx-background-color: #ffe5e5;
+                    -fx-text-fill: #980b0b;
+                    -fx-font-weight: bold;
+                    -fx-background-radius: 6;"
                text=""
                wrapText="true" />
     </VBox>
@@ -98,7 +111,11 @@
         <Button fx:id="cancelButton"
                 cancelButton="true"
                 onAction="#handleCancel"
-                style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;"
+                style="-fx-background-color: #cccccc;
+                        -fx-text-fill: #333333;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 20;"
                 text="Annuler">
             <font>
                 <Font size="12" />
@@ -108,7 +125,12 @@
         <Button fx:id="createButton"
                 defaultButton="true"
                 onAction="#handleCreate"
-                style="-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;"
+                style="-fx-background-color: #980b0b;
+                        -fx-text-fill: white;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 24;
+                        -fx-font-weight: bold;"
                 text="Créer">
             <font>
                 <Font size="12" />
@@ -125,5 +147,4 @@
             </effect>
         </Button>
     </HBox>
-
 </VBox>

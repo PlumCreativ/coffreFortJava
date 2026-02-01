@@ -126,58 +126,54 @@ public class RegisterController {
     @FXML
     public void handleRegister(){
 
-        System.out.println("handleRegister() appelé !");
-        clearMessages();
+        System.out.println("handleRegister() appele !");
+        clearAllErrors();
 
-        // Nettoyer le message d'erreur
-        if (errorLabel1 != null) {
-            errorLabel1.setText("");
-        }
-        if (statusLabel1 != null){
-            statusLabel1.setText("");
-        }
 
         String email = emailField1.getText() != null ? emailField1.getText().trim() : "";
         String password = passwordField1.getText() != null ? passwordField1.getText().trim() : "";
         String confirmPassword = confirmPasswordField1.getText() != null ? confirmPasswordField1.getText().trim() : "";
 
-        boolean hasError = false;
-
-        if(loginSelectShowPassword.isSelected()){
-            showLabel(errorLabel1, "Veuillez masquer le mot de passe avant de vous inscrire.");
+        //validation côté Client
+        if (email.isEmpty()) {
+            showError("Veuillez saisir votre email.");
             return;
         }
 
-        //Validation email
-        if(email.isEmpty()){
-            showLabel(emailError1, "L'email est obligatoire.");
-            hasError = true;
-        }else if(!email.contains("@") || !email.contains(".")){
-            showLabel(emailError1, "L'email invalide.");
-            hasError = true;
+        //Validation format email
+        if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            showError("Format d'email invalide.");
+            return;
         }
 
         //Validation password
         if(password.isEmpty()){
-            showLabel(passwordError1, "Le password est obligatoire.");
-            hasError = true;
-        }else if(password.length() < 8){
-            showLabel(passwordError1, "Le password est trop court (min. 8 caractères).");
-            hasError = true;
+            showError("Le mot de passe est obligatoire.");
+            return;
+        }
+
+        if(password.length() < 8){
+            showError("Le mot de passe est trop court (minimum 8 caractères).");
+            return;
         }
 
         //Validation la confirmation de password
         if(confirmPassword.isEmpty()){
-            showLabel(confirmPasswordError1, "Veuillez confirmer le mot de passe.");
-            hasError = true;
-        }else if(!confirmPassword.equals(password)){
-            showLabel(confirmPasswordError1, "Les mots de passe ne correspondent pas.");
-            hasError = true;
-        }
-
-        if(hasError){
+            showError("Veuillez confirmer le mot de passe.");
             return;
         }
+
+        if(!confirmPassword.equals(password)){
+            showError("Les mots de passe ne correspondent pas.");
+            return;
+        }
+
+        if(loginSelectShowPassword.isSelected()){
+            showError("Veuillez masquer le mot de passe avant de vous inscrire.");
+            return;
+        }
+
+        //appel API
 
         // Désactiver le bouton pendant l'inscription
         if(registerButton1 != null) {
@@ -186,6 +182,7 @@ public class RegisterController {
 
         if(statusLabel1 != null) { //=> ???????????
             statusLabel1.setText("Inscription en cours...");
+            statusLabel1.setVisible(true);
         }
 
         //int quotaTotal = 31457280; // 30 Mo par défaut pour tests
@@ -198,9 +195,13 @@ public class RegisterController {
             @Override
             protected String call() throws Exception {
 
-                // Appel à ApiClient.register()
-                return apiClient.register(email, password, quotaTotal);
-
+                try{
+                    // Appel à ApiClient.register()
+                    return apiClient.register(email, password, quotaTotal);
+                }catch (Exception e){
+                    updateMessage(e.getMessage());
+                    throw e;
+                }
             }
         };
 
@@ -211,15 +212,14 @@ public class RegisterController {
             }
 
             String token = task.getValue(); //échec => null
-            String apiMessage = task.getMessage();  // message ou null
-            if(token != null){
+            if(token != null && !token.isEmpty()){
 
                 //Inscription et login => ok
                 if(statusLabel1 != null) {
-                    statusLabel1.setText("Inscription réussie, connexion automatique réussie.");
+                    statusLabel1.setText("Inscription réussie ! Connexion automatique...");
                 }
 
-                showSuccess("Bienvenue !  Vous êtes connecté(e).");
+                showSuccess("Bienvenue !  Vous êtes maintenant connecté(e).");
 
                 if(onRegisterSuccess != null) {
                     onRegisterSuccess.run(); //=> changer de scène/ fenêtre
@@ -229,19 +229,15 @@ public class RegisterController {
                 // échec côté API (inscription ou login)
                 if(statusLabel1 != null) {
                     statusLabel1.setText("");
+                    statusLabel1.setVisible(false);
                 }
 
-                String message = (apiMessage != null && !apiMessage.isEmpty())
+                String apiMessage = task.getMessage();  // message ou null
+                String errorMessage = (apiMessage != null && !apiMessage.isEmpty())
                         ? apiMessage
                         : "Erreur lors de l'inscription/connexion.";
 
-                if(message.toLowerCase().contains("email")){
-                    showLabel(emailError1, message);
-                }else if(message.toLowerCase().contains("password")){
-                    showLabel(passwordError1, message);
-                }else{
-                    showLabel(errorLabel1, message);
-                }
+                showError(errorMessage);
             }
         });
 
@@ -251,22 +247,57 @@ public class RegisterController {
             }
             if(statusLabel1 != null) {
                 statusLabel1.setText("");
+                statusLabel1.setVisible(false);
             }
-            if(errorLabel1 != null) {
-                showLabel(errorLabel1, "Erreur pendant l'inscription.");
-
-            }
-
+            
+            //récup exception
             Throwable ex = task.getException();
+            String errorMessage = "Erreur pendant l'inscription.";
+            
             if (ex != null) {
                 ex.printStackTrace();
+                
+                //extraire le msg erreur de l"exception
+                String exMessage = ex.getMessage();
+                if (exMessage != null && !exMessage.isEmpty()) {
+                    errorMessage = exMessage;
+                }
+                
+                if(exMessage != null) {
+                    if(errorMessage.toLowerCase().contains("email")){
+                        
+                        //erreur lié au email
+                        if(emailError1 != null) {
+                            emailError1.setText(errorMessage);
+                            emailError1.setVisible(true);
+                            emailError1.setManaged(true);
+                        }else{
+                            showError(errorMessage);
+                        }
+                    } else if (errorMessage.toLowerCase().contains("password") || errorMessage.toLowerCase().contains("mot de passe")) {
+
+                        //erreur lié au password
+                        if(passwordError1 != null) {
+                            passwordError1.setText(errorMessage);
+                            passwordError1.setVisible(true);
+                            passwordError1.setManaged(true);
+                        }else{
+                            showError(errorMessage);
+                        }
+                    }else{
+                        //erreur général
+                        showError(errorMessage);
+                    }
+                }else{
+                    showError(errorMessage);
+                }
+            }else{
+                showError(errorMessage);
             }
         });
 
-
         //lancer le Task en arrière-plan
         new Thread(task).start();
-
     }
 
 
@@ -288,7 +319,8 @@ public class RegisterController {
 
     //Méthodes utilitaires
 
-    public void clearMessages(){
+    // nettoyer tous les messages d'erreur et de statut
+    public void clearAllErrors(){
         hideLabel(emailError1);
         hideLabel(passwordError1);
         hideLabel(confirmPasswordError1);
@@ -303,15 +335,22 @@ public class RegisterController {
         label.setManaged(false);
     }
 
-    public void showLabel(Label label, String message){
-        if(label == null) return;
-        label.setText(message);
-        label.setVisible(true);
-        label.setManaged(true);
+    //affiche un message d'eereur dans le label principal
+    public void showError(String message){
+        if(errorLabel1 != null){
+            errorLabel1.setText(message);
+            errorLabel1.setVisible(true);
+            errorLabel1.setManaged(true);
+        }
     }
 
+    //affiche un message succes
     public void showSuccess(String message){
-        showLabel(successLabel1, message);
+        if(successLabel1 != null){
+            successLabel1.setText(message);
+            successLabel1.setVisible(true);
+            successLabel1.setManaged(true);
+        }
     }
 
 

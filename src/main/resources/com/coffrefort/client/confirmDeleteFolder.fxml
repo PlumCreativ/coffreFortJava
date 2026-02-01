@@ -66,8 +66,14 @@
                wrapText="true"
                textAlignment="CENTER"
                style="-fx-text-fill: #333333; -fx-font-size: 13px;"
-               text="Voulez-vous vraiment supprimer ce dossier ?&#10;Tous les fichiers et sous-dossiers de ce dossier seront supprimés."/>
+               text="Voulez-vous vraiment supprimer ce dossier ?"/>
 
+        <Label alignment="CENTER"
+               prefWidth="370"
+               wrapText="true"
+               textAlignment="CENTER"
+               style="-fx-text-fill: #333333; -fx-font-size: 13px;"
+               text="Tous les fichiers et sous-dossiers seront supprimés."/>
 
         <Label fx:id="folderNameLabel"
                alignment="CENTER"
@@ -116,8 +122,5 @@
                 </DropShadow>
             </effect>
         </Button>
-
     </HBox>
-
 </VBox>
-

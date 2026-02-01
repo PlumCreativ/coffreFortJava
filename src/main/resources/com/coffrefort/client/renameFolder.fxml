@@ -13,7 +13,7 @@
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.text.Text?>
 
-<VBox prefHeight="240"
+<VBox prefHeight="350"
       prefWidth="420"
       spacing="15"
       style="-fx-background-color: #E5E5E5; -fx-background-radius: 8;"
@@ -89,9 +89,8 @@
                prefWidth="370"
                wrapText="true"
                textAlignment="CENTER"
-               style="-fx-background-color: #ffe5e5; -fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-padding: 8; -fx-background-radius: 6;"
+               style="-fx-background-color: #ffe5e5; -fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-background-radius: 6;"
                text="Erreur"/>
-
     </VBox>
 
     <Region VBox.vgrow="ALWAYS"/>
@@ -125,7 +124,5 @@
                 </DropShadow>
             </effect>
         </Button>
-
     </HBox>
-
 </VBox>

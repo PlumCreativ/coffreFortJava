@@ -15,7 +15,7 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.coffrefort.client.controllers.MainController"
             style="-fx-background-color: #E5E5E5;"
-            prefWidth="1000"
+            prefWidth="1024"
             prefHeight="700">
 
     <!-- En-tête avec logo et infos utilisateur -->
@@ -173,7 +173,7 @@
                     </Button>
 
                     <Button fx:id="deleteButton"
-                            text="🗑️ Supprimer"
+                            text="🗑 Supprimer"
                             onAction="#handleDelete"
                             disable="true"
                             style="-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;">

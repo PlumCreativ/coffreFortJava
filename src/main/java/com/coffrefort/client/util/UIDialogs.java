@@ -149,12 +149,12 @@ public final class UIDialogs {
         pane.setStyle("-fx-background-color: #E5E5E5;");
 
         // Boutons personnalisés
-        ButtonType revokeType = new ButtonType("Révoquer", ButtonBar.ButtonData.OK_DONE);
+        ButtonType confirmType = new ButtonType("Confirmer", ButtonBar.ButtonData.OK_DONE);
         ButtonType cancelType = new ButtonType("Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
-        alert.getButtonTypes().setAll(revokeType, cancelType);
+        alert.getButtonTypes().setAll(confirmType, cancelType);
 
         // Styles boutons
-        Button revokeBtn = (Button) pane.lookupButton(revokeType);
+        Button revokeBtn = (Button) pane.lookupButton(confirmType);
         if (revokeBtn != null) {
             revokeBtn.setStyle(
                     "-fx-background-color: #980b0b;" +
@@ -173,7 +173,7 @@ public final class UIDialogs {
             );
         }
 
-        return alert.showAndWait().filter(btn -> btn == revokeType).isPresent();
+        return alert.showAndWait().filter(btn -> btn == confirmType).isPresent();
     }
 
 
