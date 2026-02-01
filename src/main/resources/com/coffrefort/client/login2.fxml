@@ -68,7 +68,7 @@
         <TextField fx:id="emailField"
                    prefHeight="30.0"
                    prefWidth="70.0"
-                   promptText="Email"
+                   promptText="votre.email@exemple.com"
                    GridPane.rowIndex="4">
             <effect>
                 <DropShadow height="15.0"
@@ -130,9 +130,29 @@
             </TextField>
         </StackPane>
 
+        <!-- CheckBox pour voir le mot de passe-->
+        <HBox spacing="10" alignment="CENTER_LEFT" GridPane.rowIndex="6">
+            <CheckBox fx:id="loginSelectShowPassword"
+                      mnemonicParsing="false"
+                      text="Afficher le mot de passe"
+                      onAction="#handleToggleShowPassword"/>
+
+            <!-- Region extensible pour pousser le lien à droite -->
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <Hyperlink fx:id="ForgotPasswordLink"
+                       text="Mot de passe oublié?"
+                       style="-fx-text-fill: #980b0b; -fx-cursor: hand;" />
+        </HBox>
+
+
         <!-- Zone message d'erreur -->
         <Label fx:id="errorLabel"
-               style="-fx-text-fill: #b00000;"
+               style="-fx-background-color: #ffe5e5;
+                        -fx-text-fill: #b00000;
+                        -fx-font-weight: bold;
+                        -fx-background-radius: 4;"
+               textAlignment="CENTER"
                GridPane.rowIndex="7">
             <GridPane.margin>
                 <Insets />
@@ -199,20 +219,7 @@
             </GridPane.margin>
         </Hyperlink>
 
-        <!-- CheckBox pour voir le mot de passe-->
-        <HBox spacing="10" alignment="CENTER_LEFT" GridPane.rowIndex="6">
-            <CheckBox fx:id="loginSelectShowPassword"
-                      mnemonicParsing="false"
-                      text="Afficher le mot de passe"
-                      onAction="#handleToggleShowPassword"/>
 
-            <!-- Region extensible pour pousser le lien à droite -->
-            <Region HBox.hgrow="ALWAYS"/>
-
-            <Hyperlink fx:id="ForgotPasswordLink"
-                       text="Mot de passe oublié?"
-                       style="-fx-text-fill: #980b0b; -fx-cursor: hand;" />
-        </HBox>
 
 
     </children>

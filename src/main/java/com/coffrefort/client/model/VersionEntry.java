@@ -25,16 +25,18 @@ public class VersionEntry {
     private long size;
     private String createdAt;
     private String checksum;
+    private Boolean isCurrent;
 
     //méthodes
     public VersionEntry(){}
 
-    public VersionEntry(long id, int version, long size, String createdAt, String checksum) {
+    public VersionEntry(long id, int version, long size, String createdAt, String checksum, Boolean isCurrent) {
         this.id = id;
         this.version = version;
         this.size = size;
         this.createdAt = createdAt;
         this.checksum = checksum;
+        this.isCurrent = isCurrent;
     }
 
     public long getId() {
@@ -81,6 +83,10 @@ public class VersionEntry {
         return getFormattedSize(size);
     }
 
+    public boolean getIsCurrent(){
+        return isCurrent;
+    }
+
 
     /**
      * Convertit la date createdAt (format backend) en format lisible pour l’UI, ou renvoie la valeur brute si le parsing échoue
@@ -111,9 +117,9 @@ public class VersionEntry {
 
         String c = checksum.trim();
 
-        if(c.length() < 12) return c;
+        if(c.length() < 20) return c;
 
-        return  c.substring(0, 12) + "..."; //=> renvoi les 12 premiers caractères
+        return  c.substring(0, 20) + "..."; //=> renvoi les 12 premiers caractères
     }
 
     /**

@@ -2,6 +2,7 @@ package com.coffrefort.client.controllers;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
@@ -17,6 +18,7 @@ public class ShareController {
 
     @FXML private TextField expiresField;
     @FXML private TextField maxUsesField;
+    @FXML private CheckBox allowVersionsCheckBox;
 
     private Stage stage;
 
@@ -77,32 +79,52 @@ public class ShareController {
 
         hideError();
 
-        int maxUses = 2; // => valeur par défaut
+        //Integer maxUses = 2; // => valeur par défaut
+        Integer maxUses = null; //=> illimité
         try {
             String maxUsesText = maxUsesField.getText();
             if(maxUsesText != null && !maxUsesText.isBlank()) {
                 maxUses = Integer.parseInt(maxUsesText.trim());
+
+                if(maxUses < 1) {
+                    showError("Max uses doit être >= 1 ou vide (illimité)");
+                    return;
+                }
             }
         } catch (NumberFormatException e) {
             showError("Max uses invalide");
             return;
         }
 
-        int expiresDays = 7; // => valeur par défaut
+        //Integer expiresDays = 7; // => valeur par défaut
+        Integer expiresDays = null; // => illimité
 
         try {
             String expiresText = expiresField.getText();
             if(expiresText != null && !expiresText.isBlank()){
                 expiresDays = Integer.parseInt(expiresText.trim());
+
+                if(expiresDays < 1) {
+                    showError("Expiration doit être >= 1 ou vide (jamais)");
+                    return;
+                }
             }
         }catch(NumberFormatException e){
             showError("Expiration invalide");
             return;
         }
 
+        //allow fixed versions
+        boolean allowVersions = allowVersionsCheckBox.isSelected();
+
+        String data = recipient + "|"
+                + (maxUses != null ? maxUses : "null") + "|"
+                + (expiresDays != null ? maxUses : "null") + "|"
+                + allowVersions;
+
         // Appel du callback avec destinataire, masUses, expiresDays
         if (onShare != null) {
-            onShare.accept(recipient + "|" + maxUses + "|" + expiresDays);
+            onShare.accept(data);
         }
 
         // Ferme le dialogue après validation

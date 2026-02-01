@@ -4,9 +4,13 @@ import com.coffrefort.client.config.AppProperties;
 import com.coffrefort.client.model.*;
 import com.coffrefort.client.util.JsonUtils;
 import com.coffrefort.client.util.JwtUtils;
+import com.coffrefort.client.util.UIDialogs;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.util.JSONPObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -676,11 +680,11 @@ public class ApiClient {
     /**
      * Crée un lien de partage via POST /shares et retourne l’URL générée par le backend
      * @param id
-     * @param recipient
+     * @param data Format: "recipient|maxUses|expiresDays|allowVersions"
      * @return
      * @throws Exception
      */
-    public String shareFile(int id, String recipient) throws Exception {
+    public String shareFile(int id, String data) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
         }
@@ -690,24 +694,46 @@ public class ApiClient {
         }
 
         //découper => destinataire|maxUses|expiresDays
-        String[] parts = recipient.split("\\|");
+        String[] parts = data.split("\\|");
+        if(parts.length != 4){
+            throw new IllegalArgumentException("Format de donées invalide");
+        }
+
         String destinataire = parts[0];
-        int maxUses = Integer.parseInt(parts[1]);
-        int expiresDays = Integer.parseInt(parts[2]);
+        String maxUsesStr = parts[1];
+        String expiresDaysStr = parts[2];
+        boolean allowVersions = Boolean.parseBoolean(parts[3]);
 
+        // construire le JSON
+        StringBuilder jsonBody = new StringBuilder();
+        jsonBody.append("{");
+        jsonBody.append("\"kind\":\"file\",");
+        jsonBody.append("\"target_id\":").append(id).append(",");
+        jsonBody.append("\"label\":\"").append(escapeJson("Partage avec " + destinataire)).append("\",");
+        jsonBody.append("\"allow_fixed_versions\":").append(allowVersions);
 
-        //calculer la date d'expiration
-        String expiresAt =  Instant.now().plus(expiresDays, ChronoUnit.DAYS).toString();
+        //max uses
+        if(!"null".equals(maxUsesStr)){
+            try{
+                int maxUses = Integer.parseInt(maxUsesStr);
+                jsonBody.append("\"max_uses\":").append(maxUses);
+            }catch (NumberFormatException e){
+                //ignore
+            }
+        }
 
-        String label = "Partage fichier #" + id + " avec " + destinataire;
+        //expires at
+        if(!"null".equals(expiresDaysStr)){
+            try{
+                int expireAt = Integer.parseInt(expiresDaysStr);
+                jsonBody.append("\"expires_at\":").append(expireAt).append("\"");
+            }catch (NumberFormatException e){
+                //ignore
+            }
+        }
+        jsonBody.append("}");
 
-        String jsonBody = "{"
-                + "\"kind\":\"file\","
-                + "\"target_id\":" + id + ","
-                + "\"label\":\"" + escapeJson(label) + "\","
-                + "\"max_uses\":" + maxUses + ","
-                + "\"expires_at\":\"" + expiresAt + "\""
-                + "}";
+        System.out.println("ApiClient - JSON envoyé: " + jsonBody);
 
         // Construction de la requête HTTP
         HttpRequest request = HttpRequest.newBuilder()
@@ -715,13 +741,16 @@ public class ApiClient {
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + authToken)
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody.toString(), StandardCharsets.UTF_8))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         int status = response.statusCode();
         String body = response.body();
+
+        System.out.println("ApiClient - Réponse HTTP: " + status);
+        System.out.println("ApiClient - Corps: " + body);
 
         if(status == 201){
 
@@ -740,6 +769,8 @@ public class ApiClient {
         String error = JsonUtils.extractJsonField(body, "error");
         if(error == null || error.isEmpty()){
             error = body;
+        }else{
+            error = JsonUtils.unescapeJsonString(error);
         }
 
         throw new RuntimeException("Erreur de partage: (HTTP " + status + "): " + error);
@@ -783,11 +814,14 @@ public class ApiClient {
     }
 
     /**
-     * Révoque un partage via POST /shares/{id}/revoke
+     * Révoque un partage via PATCH /shares/{id}/revoke  => ok
      * @param id
      * @throws Exception
      */
     public void revokeShare(int id) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
 
         // Construction de la requête HTTP
         HttpRequest request = HttpRequest.newBuilder()
@@ -795,17 +829,94 @@ public class ApiClient {
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + authToken)
-                .POST(HttpRequest.BodyPublishers.noBody())
+                .method("PATCH", HttpRequest.BodyPublishers.noBody())
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         int status = response.statusCode();
 
-        if(status != 200){
-            throw new RuntimeException("Erreur de partage: (HTTP " + status + "): " + response.statusCode());
+
+        if(status == 200){
+            //UIDialogs.showInfo("Succès", null, "Partage #\" + id + \" révoqué avec succès");
+            System.out.println("Partage #" + id + " révoqué avec succès");
+            return;
         }
+
+        // Erreur d'authentification
+        if (status == 401 || status == 403) {
+            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        }
+
+        // Erreur 404 : partage introuvable
+        if (status == 404) {
+            throw new Exception("Partage #" + id + " introuvable.");
+        }
+
+        String errorMessage = parseErrorMessage(response.body(), "Erreur lors de la révocation du partage");
+        throw new Exception(errorMessage + " (HTTP " + status + ")");
+
     }
+
+    /**
+     * supprimer un partage  => OK
+     * @param id
+     * @return
+     * @throws Exception
+     */
+    public void deleteShare(int id) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/shares/" + id))
+                //.header("Content-Type", "application/json") //=> lehet hogy le kell venni
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .DELETE()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+
+        //204 => requête réussi, pas besoin de quitter la page
+        if(status == 200 || status == 204) {
+            System.out.println("Suppression du partage a réussi");
+            return;
+        }
+
+        if(status == 401 || status == 403) {
+            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        }
+
+        if (status == 404) {
+            throw new Exception("Partage introuvable (déjà supprimé ou n'existe pas).");
+        }
+
+        //autres erreur
+        String errorMessage = parseErrorMessage(response.body(), "Erreur lors de la suppression du partage");
+        throw new Exception(errorMessage + " (HTTP " + status + ")");
+    }
+
+
+    //**************************************  Methode PRIVATE   **************************************
+
+    private String parseErrorMessage(String body, String defaultMessage) {
+        try {
+            String error = JsonUtils.extractJsonField(body, "error");
+            if (error!= null && !error.isEmpty()) {
+                return JsonUtils.unescapeJsonString(error);
+            }
+        } catch (Exception e) {
+            // Ignore : le body n'est pas du JSON valide
+        }
+        return defaultMessage;
+    }
+
+    //************************************************************************************************
+
 
     /**
      * Renomme un dossier via PUT /folders/{id} avec le nouveau nom
@@ -813,7 +924,7 @@ public class ApiClient {
      * @param newName
      * @throws Exception
      */
-    public void renameFolder(int folderId, String newName) throws Exception {
+    public void renameFolder(int folderId, String newName, String currentName) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant)."); //=> état de l'objet invalide
         }
@@ -825,6 +936,10 @@ public class ApiClient {
         if(newName == null || newName.trim().isEmpty()) {
             throw new IllegalArgumentException("Le nom ne peut pas être vide");
         }
+
+//        if(newName.trim().equals(currentName)){
+//            throw new IllegalArgumentException("Le nouveau nom est identique à l'ancien");
+//        }
 
         String jsonBody = "{"
                 + "\"name\":\"" + escapeJson(newName.trim()) + "\""

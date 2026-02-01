@@ -69,7 +69,12 @@
         <Button fx:id="replaceButton"
                 text="Remplacer…"
                 onAction="#onReplace"
-                style="-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 18; -fx-font-weight: bold;">
+                style="-fx-background-color: #980b0b;
+                        -fx-text-fill: white;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 18;
+                        -fx-font-weight: bold;">
             <font>
                 <Font size="12"/>
             </font>
@@ -84,7 +89,6 @@
                 </DropShadow>
             </effect>
         </Button>
-
     </HBox>
 
     <Separator>
@@ -119,9 +123,12 @@
                prefWidth="660"
                wrapText="true"
                textAlignment="CENTER"
-               style="-fx-background-color: #ffe5e5; -fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-padding: 8; -fx-background-radius: 6;"
+               style="-fx-background-color: #ffe5e5;
+                    -fx-text-fill: #980b0b;
+                    -fx-font-weight: bold;
+                    -fx-padding: 8;
+                    -fx-background-radius: 6;"
                text="Erreur"/>
-
     </VBox>
 
     <!-- Bloc versions -->
@@ -137,7 +144,9 @@
 
     <TableView fx:id="versionsTable"
                prefHeight="320"
-               style="-fx-background-radius: 6; -fx-border-radius: 6; -fx-border-color: #cccccc;">
+               style="-fx-background-radius: 6;
+                    -fx-border-radius: 6;
+                    -fx-border-color: #cccccc;">
 
         <columns>
             <TableColumn fx:id="versionCol" text="Version" prefWidth="90"/>
@@ -175,7 +184,11 @@
                 text="Copier checksum"
                 onAction="#onCopyChecksum"
                 disable="true"
-                style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 16;">
+                style="-fx-background-color: #cccccc;
+                        -fx-text-fill: #333333;
+                        -fx-background-radius: 4; -
+                        fx-cursor: hand;
+                        -fx-padding: 8 16;">
             <font>
                 <Font size="12"/>
             </font>
@@ -185,7 +198,11 @@
                 text="Ouvrir dossier local"
                 onAction="#onOpenLocalFolder"
                 disable="true"
-                style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 16;">
+                style="-fx-background-color: #cccccc;
+                        -fx-text-fill: #333333;
+                        -fx-background-radius: 4; -
+                        fx-cursor: hand;
+                        -fx-padding: 8 16;">
             <font>
                 <Font size="12"/>
             </font>
@@ -195,12 +212,14 @@
                 text="Télécharger cette version"
                 onAction="#onDownloadVersion"
                 disable="true"
-                style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 16;">
+                style="-fx-background-color: #cccccc;
+                        -fx-text-fill: #333333;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 16;">
             <font>
                 <Font size="12"/>
             </font>
         </Button>
-
     </HBox>
-
 </VBox>

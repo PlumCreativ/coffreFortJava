@@ -304,9 +304,9 @@ public class JsonUtils {
         }
 
         //réponse de backend => { file_id, page, limit, total, items: [ ... ] }
-        String itemsArray = extractJsonArrayField(json, "items");
+        String itemsArray = extractJsonArrayField(json, "versions");
         if (itemsArray == null || itemsArray.isBlank()) {
-            System.out.println("'items' recu du backend vide ou null");
+            System.out.println("'versions' recu du backend vide ou null");
             return result;
         }
 
@@ -346,7 +346,13 @@ public class JsonUtils {
             int version = (versionString != null && !versionString.isEmpty()) ? Integer.parseInt(versionString) : 0;
             long size = (sizeString != null && !sizeString.isEmpty()) ? Long.parseLong(sizeString) : 0L;
 
-            result.add(new VersionEntry(id, version, size, createdAtString, checksumHex));
+            Boolean isCurrent = false;
+            String isCurrentStr = extractJsonField(o, "is_current");
+            if (isCurrentStr != null && isCurrentStr.equals("true")) {
+                isCurrent = true;
+            }
+
+            result.add(new VersionEntry(id, version, size, createdAtString, checksumHex, isCurrent));
         }
 
         return result;

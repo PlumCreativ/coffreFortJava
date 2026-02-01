@@ -73,7 +73,9 @@ public class RenameFolderController {
         if(onConfirm != null){
             onConfirm.accept(newName);
         }
+    }
 
+    public void close(){
         if(dialogStage != null){
             dialogStage.close();
         }
@@ -96,5 +98,4 @@ public class RenameFolderController {
         errorLabel.setManaged(false);
         errorLabel.setVisible(false);
     }
-
 }

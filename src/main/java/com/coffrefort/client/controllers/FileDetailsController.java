@@ -84,6 +84,12 @@ public class FileDetailsController {
         this.stage = stage;
     }
 
+    private void updateTitle(){
+        if(stage != null && file != null){
+            stage.setTitle("Detail - " + file.getName());
+        }
+    }
+
     /**
      * Définit le fichier courant dont les versions sont affichées
      * @param file
@@ -112,6 +118,7 @@ public class FileDetailsController {
                 Platform.runLater(() -> {
                     this.file = fresh; // => mise à jour les valeurs de header
                     refresh();
+                    updateTitle();
                 });
             } catch (Exception e) {
                 e.printStackTrace();
@@ -371,7 +378,7 @@ public class FileDetailsController {
         Clipboard.getSystemClipboard().setContent(content);
 
         //feedback
-        UIDialogs.showInfo("Checksum copie", null, "Le checksum a ete copie dans le presse-papiers.");
+        UIDialogs.showInfo("Checksum copie", null, "Le checksum a été copie dans le presse-papiers.");
     }
 
     @FXML
@@ -440,7 +447,8 @@ public class FileDetailsController {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Enregistrer la version " + sel.getVersion());
         //chooser.setInitialFileName(file.getName());
-        chooser.setInitialFileName(file.getName() + "_v" + sel.getVersion());
+        //chooser.setInitialFileName(file.getName() + "_v" + sel.getVersion());
+        chooser.setInitialFileName("v" + sel.getVersion() + "_" + file.getName());
 
         //pour définir un filtre par extension
         chooser.getExtensionFilters().addAll(

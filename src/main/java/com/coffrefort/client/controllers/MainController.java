@@ -1,6 +1,7 @@
 package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.ApiClient;
+import com.coffrefort.client.App;
 import com.coffrefort.client.model.FileEntry;
 import com.coffrefort.client.model.NodeItem;
 import com.coffrefort.client.model.Quota;
@@ -59,12 +60,22 @@ public class MainController {
     private Runnable onLogout;
     private ObservableList<FileEntry> fileList = FXCollections.observableArrayList();
     private NodeItem currentFolder;
+    private App app;
+    private String currentNameFolder;
 
     private Stage mainStage;
 
     //méthodes
     public void setApiClient(ApiClient apiClient) {
         this.apiClient = apiClient;
+        System.out.println("MainController - setApiClient() appelé, apiClient = " + (apiClient != null ? "OK" : "NULL"));
+        System.out.println("MainController - Instance hashCode = " + this.hashCode());
+    }
+
+    public void setApp(App app){
+        this.app = app;
+        System.out.println("MainController - setApp() appelé, app = " + (app != null ? "OK" : "NULL"));
+        System.out.println("MainController - Instance hashCode = " + this.hashCode());
     }
 
     public void setOnLogout(Runnable callback) {
@@ -1077,6 +1088,12 @@ public class MainController {
     @FXML
     private void handleLogout() {
         logoutButton.setDisable(true);
+
+        System.out.println("MainController - handleLogout() appelé");
+        System.out.println("MainController - Instance hashCode = " + this.hashCode());
+        System.out.println("MainController - app is null ? " + (app == null));
+        System.out.println("MainController - apiClient is null ? " + (apiClient == null));
+
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/com/coffrefort/client/confirmLogout.fxml")
@@ -1107,29 +1124,39 @@ public class MainController {
                 // Utiliser Platform.runLater pour changer de scène de manière sûre
                 Platform.runLater(() -> {
                     try {
-                        FXMLLoader loginLoader = new FXMLLoader(
-                                getClass().getResource("/com/coffrefort/client/login2.fxml")
-                        );
-                        Parent loginRoot = loginLoader.load();
 
-                        // Récupérer le contrôleur du login
-                        LoginController loginController = loginLoader.getController();
-
-                        // Injecter l'ApiClient existant
-                        loginController.setApiClient(apiClient);
+//                        FXMLLoader loginLoader = new FXMLLoader(
+//                                getClass().getResource("/com/coffrefort/client/login2.fxml")
+//                        );
+//                        Parent loginRoot = loginLoader.load();
+//
+//                        // Récupérer le contrôleur du login
+//                        LoginController loginController = loginLoader.getController();
+//
+//                        // Injecter l'ApiClient existant
+//                        loginController.setApiClient(apiClient);
 
                         // Récupérer la fenêtre principale (Stage)
-                        Stage stage = (Stage) logoutButton.getScene().getWindow();
+                        Stage stage = (Stage)logoutButton.getScene().getWindow();
+
+                        //appel la méthode openlogin de App
+                        if(app != null){
+                            System.out.println("MainController - Appel de app.openLogin()");
+                            app.openLogin(stage); //Appel DIRECT, pas de callback
+                            System.out.println("Redirection vers la page de connexion réussie.");
+                        }else{
+                            System.err.println("Erreur: App n'est pas injecté dans MainController");
+                            UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de retourner à l'écran de connexion");
+                        }
 
                         // Remplacer la scène par celle du login
-                        Scene loginScene = new Scene(loginRoot);
-                        stage.setScene(loginScene);
-                        stage.setTitle("Connexion - CryptoVault");
-                        stage.show();
+//                        Scene loginScene = new Scene(loginRoot, 420, 600);
+//                        stage.setTitle("Connexion - CryptoVault");
+//                        stage.setScene(loginScene);
+//                        stage.centerOnScreen();
+//                        stage.show();
 
-                        System.out.println("Redirection vers la page de connexion réussie.");
-
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         System.err.println("Erreur lors du chargement de login2.fxml");
                         e.printStackTrace();
 
@@ -1202,18 +1229,30 @@ public class MainController {
             dialogStage.setScene(new Scene(root));
 
             controller.setStage(dialogStage);
-
-            controller.setCurrentName(folder.getName());
+            currentNameFolder = folder.getName();
+            controller.setCurrentName(currentNameFolder);
 
             controller.setOnConfirm(newName -> {
+
+                if(newName.trim().equals(currentNameFolder)){
+                    Platform.runLater(() -> {
+                        UIDialogs.showError("Renommer", null , "Le nouveau nom est identique à l'ancien");
+                        //dialogStage.close();
+                    });
+                    return;
+                }
+
                 statusLabel.setText("Renommage en cours...");
+
                 new Thread(() -> {
                     try {
-                        apiClient.renameFolder(folder.getId(), newName); //=> il faut id et name
+                        apiClient.renameFolder(folder.getId(), newName, currentNameFolder); //=> il faut id et name, currenNameFolder au cas ou
 
                         Platform.runLater(() -> {
+                            dialogStage.close(); //=> fermer si succès
                             loadData(); // => refresh Tree
                             statusLabel.setText("Dossier renommé en " + newName);
+
                         });
                     }catch (Exception e){
                         e.printStackTrace();
@@ -1273,12 +1312,14 @@ public class MainController {
                                 loadData(); // => refresh
                             }
                             statusLabel.setText("Fichier renommé en " + newName);
+                            statusLabel.setVisible(true);
                         });
                     }catch (Exception e){
                         e.printStackTrace();
                         Platform.runLater(() -> {
                             UIDialogs.showError("Renommer", null,"Erreur: " + e.getMessage());
                             statusLabel.setText("Erreur pendant le renommage");
+                            statusLabel.setVisible(true);
                         });
                     }
                 }).start();
@@ -1325,6 +1366,7 @@ public class MainController {
                        }
                        updateQuota();
                        statusLabel.setText("Version remplacée: " + file.getName());
+
            }));
 
             dialogStage.showAndWait();

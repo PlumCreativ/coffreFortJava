@@ -1,4 +1,4 @@
-package com.coffrefort.client;
+package com.coffrefort.client.views;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;

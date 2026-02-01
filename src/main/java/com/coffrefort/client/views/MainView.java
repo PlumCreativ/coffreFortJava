@@ -1,5 +1,6 @@
-package com.coffrefort.client;
+package com.coffrefort.client.views;
 
+import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.controllers.MainController;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;

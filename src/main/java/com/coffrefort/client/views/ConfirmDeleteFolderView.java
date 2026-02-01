@@ -1,4 +1,4 @@
-package com.coffrefort.client;
+package com.coffrefort.client.views;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -14,7 +14,7 @@ public class ConfirmDeleteFolderView {
 
     private final VBox root = new VBox(15);
 
-    private final Label questionLabel = new Label("Voulez-vous vraiment supprimer ce dossier ?\nTous les fichiers et sous-dossiers de ce dossier seront supprimés.");
+    private final Label questionLabel = new Label("Voulez-vous vraiment supprimer ce dossier ?\nTous les fichiers et sous-dossiers seront supprimés.");
     private final Label dossierNameLabel = new Label("NomDuDossier.ext");
     private final Label warningLabel = new Label("Impossible d'annuler après validation.");
 

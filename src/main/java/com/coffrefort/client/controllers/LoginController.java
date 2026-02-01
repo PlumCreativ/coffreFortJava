@@ -1,6 +1,7 @@
 package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.ApiClient;
+import com.coffrefort.client.App;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -71,6 +72,7 @@ public class LoginController {
         this.apiClient = apiClient;
     }
 
+    //Setter pour recevoir le callback de App!!!
     public void setOnSuccess(Runnable onSuccess) {
         this.onSuccess = onSuccess;
     }
@@ -162,21 +164,29 @@ public class LoginController {
             String token  = task.getValue();
             if (token  != null) {
                 statusLabel.setText("Connexion réussie.");
-                try {
-                    FXMLLoader mainLoader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/main.fxml"));
-                    Parent mainRoot = mainLoader.load();
 
-                    MainController mainController = mainLoader.getController();
-                    mainController.setApiClient(apiClient);
-
-                    Stage stage = (Stage) emailField.getScene().getWindow();
-                    stage.setScene(new Scene(mainRoot));
-                    stage.setTitle("CryptoVault - Accueil");
-                    stage.show();
-                } catch (IOException e) {
-                    errorLabel.setText("Erreur de chargement de l'application.");
-                    e.printStackTrace();
+                //il faut appeler callback onSuccess au lieu de charger manuellement main.fxml
+                if (onSuccess != null){
+                    onSuccess.run();   //Execute: App.openMainAndClose(stage)
                 }
+
+                //si je mets ca=> après la déconnexion la fenêtre s'affiche pas!!!!
+//                try {
+//                    FXMLLoader mainLoader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/main.fxml"));
+//                    Parent mainRoot = mainLoader.load();
+//
+//                    MainController mainController = mainLoader.getController();
+//                    mainController.setApiClient(apiClient);
+//                    mainController.setApp(app);
+//
+//                    Stage stage = (Stage) emailField.getScene().getWindow();
+//                    stage.setScene(new Scene(mainRoot));
+//                    stage.setTitle("CryptoVault - Accueil");
+//                    stage.show();
+//                } catch (IOException e) {
+//                    errorLabel.setText("Erreur de chargement de l'application.");
+//                    e.printStackTrace();
+//                }
             } else {
                 errorLabel.setText("Email ou mot de passe incorrect.");
                 statusLabel.setText("");
