@@ -13,12 +13,15 @@ import javafx.collections.ObservableMap;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.awt.Desktop;
@@ -223,7 +226,23 @@ public class FileDetailsController {
 
         versionsTable.setItems(versions);
 
-        //activation d'un bouton si (que) un bouton est séléctionné
+        rebinButtons();
+
+        //pour assurer qu'il n'y a pas binding
+        progressBox.visibleProperty().unbind();
+        progressBox.managedProperty().unbind();
+
+        // le progress UI caché au début
+        setProgressVisible(false);
+
+        //utilisateur change de sélection => effacer les messages d'erreur
+        versionsTable.getSelectionModel().selectedItemProperty().addListener((obs, v, n) -> hideError());
+
+    }
+
+    //activation d'un bouton si (que) un bouton est séléctionné
+    private void rebinButtons(){
+
         copyChecksumButton.disableProperty().bind(
                 Bindings.isNull(versionsTable.getSelectionModel().selectedItemProperty())
         );
@@ -241,16 +260,7 @@ public class FileDetailsController {
                     return !downloadedPaths.containsKey(key(file.getId(), sel.getVersion()));
                 }, versionsTable.getSelectionModel().selectedItemProperty(), downloadedPaths)
         );
-
-        // le progress UI caché au début
-        setProgressVisible(false);
-
-        //utilisateur change de sélection => effacer les messages d'erreur
-        versionsTable.getSelectionModel().selectedItemProperty().addListener((obs, v, n) -> hideError());
-
-
     }
-
 
 
     /**
@@ -270,9 +280,32 @@ public class FileDetailsController {
         //checksum short
         checksumCol.setCellValueFactory(new PropertyValueFactory<>("checksumShort"));
 
-        // avec double clique => copier le checksum
+        //clique sur la ligne
         versionsTable.setRowFactory(tv -> {
             TableRow<VersionEntry> row = new TableRow<>();
+
+            //menu contextuel par ligne
+            ContextMenu contextMenu = new ContextMenu();
+
+            MenuItem deleteVersion = new MenuItem("Supprimer cette version...");
+            deleteVersion.setOnAction(e -> {
+                VersionEntry version = row.getItem();
+                if (version != null) {
+                    versionsTable.getSelectionModel().select(version);
+                    handleDeleteVersion();
+                }
+            });
+
+            contextMenu.getItems().addAll(deleteVersion);
+
+            //affichage le menu => que si la ligne n'est pas vide
+            row.contextMenuProperty().bind(
+                    javafx.beans.binding.Bindings.when(row.emptyProperty())
+                            .then((ContextMenu)null)
+                            .otherwise(contextMenu)
+            );
+
+            // avec double clique => copier le checksum
             row.setOnMouseClicked(event -> {
                 if(event.getClickCount() == 2 && !row.isEmpty()) {
                     onCopyChecksum();
@@ -281,6 +314,179 @@ public class FileDetailsController {
             return row;
         });
     }
+
+    /**
+     * gestion de la suppression d'une version =>ok
+     */
+    public void handleDeleteVersion(){
+        VersionEntry selected = versionsTable.getSelectionModel().getSelectedItem();
+        if (selected == null || file == null){
+            return;
+        }
+
+        //ne pas supprimer la version courante
+        if(selected.getIsCurrent()){
+            UIDialogs.showError("Suppression impossible",
+                    null,
+                    "Impossible de supprimer la version active du fichier.\n" +
+                            "Veuillez d'abord uploader une nouvelle version."
+            );
+            return;
+        }
+
+        // ne pas supprimer si c'est la seul version
+        if(versions.size() <= 1){
+            UIDialogs.showError("Suppression impossible",
+                    null,
+                    "Impossible de supprimer la dernière version du fichier."
+            );
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/confirmDelete.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            ConfirmDeleteController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Confirmer la suppresion de la version");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(versionsTable.getScene().getWindow());
+            dialogStage.setScene(new Scene(root));
+
+            // Injection du stage et du nom de fichier
+            controller.setDialogStage(dialogStage);
+
+            // personnaliser pour fichier
+            controller.setMessage("Voulez-vous vraiment supprimer cette version ?");
+            controller.setFileName(
+                    file.getName() + " - Version " + selected.getVersion() +
+                            " (" + selected.getFormattedSize() + ")"
+            );
+
+            //callbacks
+            controller.setOnConfirm(() -> deleteVersion(selected));
+            controller.setOnCancel(() -> {
+                if(uploadStatusLabel != null){
+                    uploadStatusLabel.setText("Suppression annulée");
+                }
+            });
+            dialogStage.showAndWait();
+
+        } catch (Exception e){
+            System.err.println("Erreur lors du chargement de confirmDelete.fxml");
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
+        }
+    }
+
+    /**
+     * supprimer une version =>OK
+     * @param version
+     */
+    private void deleteVersion(VersionEntry version){
+        if (apiClient == null || file == null || version == null) {
+            return;
+        }
+        setProgressVisible(true);
+        uploadStatusLabel.setText("Suppression de la version " + version.getVersion() + " ...");
+        uploadProgressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
+
+        // il faut unbind avant de modifier les boutons
+        copyChecksumButton.disableProperty().unbind();
+        openLocalFolderButton.disableProperty().unbind();
+        downloadVersionButton.disableProperty().unbind();
+
+        //désactiver les boutons
+        replaceButton.setDisable(true);
+        copyChecksumButton.setDisable(true);
+        openLocalFolderButton.setDisable(true);
+        downloadVersionButton.setDisable(true);
+
+        new Thread(() -> {
+            try {
+                apiClient.deleteVersion(file.getId(), version.getId());
+
+                Platform.runLater(() -> {
+
+                    //masquer la progression
+                    setProgressVisible(false);
+
+                    //supprimer localement
+                    versions.remove(version);
+
+                    //mise à jour le compteur
+                    versionsCountLabel.setText(versions.size() + " version(s)");
+
+                    // rafraîchir les données depuis le serveur
+                    hydrateThenRefresh();
+
+                    //notifier le parent (MainController) pour mettre à jour le quota
+                    if(onVersionUploaded != null){
+                        onVersionUploaded.run();
+                    }
+
+                    // réactiver les boutons
+                    replaceButton.setDisable(false);
+                    copyChecksumButton.setDisable(false);
+                    openLocalFolderButton.setDisable(false);
+                    downloadVersionButton.setDisable(false);
+
+                    //rebind après modif
+                    rebinButtons();
+
+                    UIDialogs.showInfo("Suppression réussie",
+                            null,
+                            "La version " + version.getVersion() + " de \"" +
+                            file.getName() + "\" a été supprimée."
+                    );
+                });
+                uploadStatusLabel.setText("");
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+
+                    //masquer la progression
+                    setProgressVisible(false);
+
+                    // réactiver les boutons
+                    replaceButton.setDisable(false);
+                    copyChecksumButton.setDisable(false);
+                    openLocalFolderButton.setDisable(false);
+                    downloadVersionButton.setDisable(false);
+
+                    //rebind après modif
+                    rebinButtons();
+
+                    //affichage message d'erreur
+                    String errorMessage = e.getMessage();
+                    if(errorMessage != null && errorMessage.contains("version active")){
+                        UIDialogs.showError("Suppression impossible",
+                                null,
+                                "Impossible de supprimer la version active du fichier"
+                        );
+                    }else if (errorMessage != null && errorMessage.contains("dernière version")){
+                        UIDialogs.showError("Suppression impossible",
+                                null,
+                                "Impossible de supprimer la dernière version du fichier"
+                        );
+                    }else{
+                        UIDialogs.showError("Erreur de suppression",
+                                null,
+                                "Erreur: " + (errorMessage != null ? errorMessage : "Erreur inconnu.")
+                        );
+                    }
+                });
+            }
+        }).start();
+    }
+
+
+
 
     //=============== Action UI ==============
     @FXML
@@ -550,10 +756,36 @@ public class FileDetailsController {
      * Affiche ou masque la zone de progression et réinitialise l’état d’erreur si nécessaire
      * @param visible
      */
-    private void setProgressVisible(boolean visible){
+//    private void setProgressVisible(boolean visible){
+//        if (progressBox == null) {
+//            System.err.println("ERREUR: progressBox est NULL !");
+//            return;
+//        }
+//
+//        progressBox.setVisible(visible);
+//        progressBox.setManaged(visible);
+//        if(!visible){
+//            hideError();
+//        }
+//    }
+
+    private void setProgressVisible(boolean visible) {
+        System.out.println("DEBUG: setProgressVisible(" + visible + ") appelé");
+        System.out.println("DEBUG: progressBox = " + progressBox);
+
+        if (progressBox == null) {
+            System.err.println("ERREUR: progressBox est NULL !");
+            return;
+        }
+
+        System.out.println("DEBUG: Avant - visible=" + progressBox.isVisible() + ", managed=" + progressBox.isManaged());
+
         progressBox.setVisible(visible);
         progressBox.setManaged(visible);
-        if(!visible){
+
+        System.out.println("DEBUG: Après - visible=" + progressBox.isVisible() + ", managed=" + progressBox.isManaged());
+
+        if (!visible) {
             hideError();
         }
     }

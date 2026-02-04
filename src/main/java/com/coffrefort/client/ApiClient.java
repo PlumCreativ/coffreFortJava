@@ -507,19 +507,23 @@ public class ApiClient {
 
 
     /**
-     * Supprime un fichier via DELETE /files/{id} et retourne true si succès
-     * @param id
+     * Supprime un fichier via DELETE /files/{id} (toutes ses versions) =>ok
+     * retourne true si succès
+     * @param fileId
      * @return
      * @throws Exception
      */
-    public Boolean deleteFile(int id) throws Exception {
+    public void deleteFile(int fileId) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
         }
 
+        if(fileId <= 0){
+            throw new IllegalArgumentException("FileId invalide: " + fileId);
+        }
+
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/files/" + id))
-                //.header("Content-Type", "application/json") //=> lehet hogy le kell venni
+                .uri(URI.create(baseUrl + "/files/" + fileId))
                 .header("Accept", "application/json")
                 .header("Authorization", "Bearer " + authToken)
                 .DELETE()
@@ -528,34 +532,112 @@ public class ApiClient {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         int status = response.statusCode();
+        String body = response.body();
 
         //204 => requête réussi, pas besoin de quitter la page
         if(status == 200 || status == 204) {
-            return true;
+            return;
         }
 
         if(status == 401 || status == 403) {
             throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
         }
-        System.out.println("Erreur pendant la suppression du fichier. Status=" + status + " body=" + response.body());
-        return false;
 
+        if(status == 404) {
+            throw new RuntimeException("Fichier introuvable");
+        }
+
+        //autres erreurs
+        String error = JsonUtils.extractJsonField(body, "error");
+        error = JsonUtils.unescapeJsonString(error);
+
+        if(error == null || error.isEmpty()){
+            error = body;
+        }
+
+        throw new RuntimeException("Erreur de suppression (HTTP " + status + "): " + error);
     }
 
-
     /**
-     * Supprime un dossier via DELETE /folders/{id} et retourne true si succès
-     * @param id
-     * @return
+     * Supprime un fichier via DELETE /files/{file_id}/versions/{id} =>ok
+     * @param fileId
+     * @param versionId
      * @throws Exception
      */
-    public Boolean deleteFolder(int id) throws Exception {
+    public void deleteVersion(int fileId, int versionId) throws Exception{
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
         }
 
+        if(fileId <= 0){
+            throw new IllegalArgumentException("FileId invalide: " + fileId);
+        }
+
+        if(versionId <= 0){
+            throw new IllegalArgumentException("VersionId invalide: " + versionId);
+        }
+
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/folders/" + id))
+                .uri(URI.create(baseUrl + "/files/" + fileId + "/versions/" + versionId))
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .DELETE()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        //204 => requête réussi, pas besoin de quitter la page
+        if(status == 200 || status == 204) {
+            return;
+        }
+
+        if(status == 401 || status == 403) {
+            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        }
+
+        if(status == 404) {
+            String error = JsonUtils.extractJsonField(body, "error");
+            error = JsonUtils.unescapeJsonString(error);
+
+            if (error == null || error.isEmpty()) {
+                error = "Fichier ou version introuvable";
+            }
+
+            throw new RuntimeException(error);
+        }
+
+        //autres erreurs
+        String error = JsonUtils.extractJsonField(body, "error");
+        error = JsonUtils.unescapeJsonString(error);
+
+        if(error == null || error.isEmpty()){
+            error = body;
+        }
+
+        throw new RuntimeException("Erreur de suppression (HTTP " + status + "): " + error);
+    }
+
+
+    /**
+     * Supprime un dossier via DELETE /folders/{id} et retourne true si succès =>ok
+     * @param folderId
+     * @return
+     * @throws Exception
+     */
+    public void deleteFolder(int folderId) throws Exception {
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(folderId <= 0){
+            throw new IllegalArgumentException("FolderId invalide: " + folderId);
+        }
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/folders/" + folderId))
                 //.header("Content-Type", "application/json") //=> lehet hogy le kell venni
                 .header("Accept", "application/json")
                 .header("Authorization", "Bearer " + authToken)
@@ -567,19 +649,42 @@ public class ApiClient {
         int status = response.statusCode();
         String body = response.body();
 
-        System.out.println("DELETE /folders/" + id + " => " + status + " body: " + body);
+        System.out.println("DELETE /folders/" + folderId + " => status " + status);
+        System.out.println("DELETE /folders/" + folderId + " =>  body: " + body);
 
         //204 => requête réussi, pas besoin de quitter la page
         if(status == 200 || status == 204) {
-            return true;
+            return;
         }
 
         if(status == 401 || status == 403) {
             throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
         }
-        System.out.println("Erreur pendant la suppression du dossier. Status=" + status + " body=" + response.body());
-        return false;
 
+        if(status == 404) {
+            throw new RuntimeException("Dossier introuvable");
+        }
+
+        //dossier non vide
+        if(status == 400){
+            String error = JsonUtils.extractJsonField(body, "error");
+            error = JsonUtils.unescapeJsonString(error);
+
+            if(error == null || error.isEmpty()){
+                error = "Dossier non vide";
+            }
+            throw new RuntimeException(error);
+        }
+
+        //autres erreurs
+        String error = JsonUtils.extractJsonField(body, "error");
+        error = JsonUtils.unescapeJsonString(error);
+
+        if(error == null || error.isEmpty()){
+            error = body;
+        }
+
+        throw new RuntimeException("Erreur de suppression (HTTP " + status + "): " + error);
     }
 
     /**

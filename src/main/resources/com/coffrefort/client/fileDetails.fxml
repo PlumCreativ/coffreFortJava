@@ -102,7 +102,8 @@
     <VBox fx:id="progressBox"
           spacing="8"
           visible="false"
-          managed="false">
+          managed="false"
+          style="-fx-padding: 10; -fx-background-color: #f5f5f5; -fx-background-radius: 6;">
 
         <Label fx:id="uploadStatusLabel"
                text="Upload..."
@@ -113,7 +114,22 @@
                      prefWidth="660"
                      prefHeight="10"
                      progress="0.0"
-                     style="-fx-background-radius: 6;"/>
+                     style="-fx-accent: #980b0b; -fx-background-radius: 6;">
+            <effect>
+                <DropShadow height="5.0"
+                            offsetX="1.0"
+                            offsetY="1.0"
+                            radius="2.0"
+                            width="5.0">
+                    <color>
+                        <Color red="0.6"
+                               green="0.04"
+                               blue="0.04"
+                               opacity="0.2" />
+                    </color>
+                </DropShadow>
+            </effect>
+        </ProgressBar>
 
         <!-- message erreur (caché par défaut) -->
         <Label fx:id="errorLabel"

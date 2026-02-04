@@ -2,6 +2,7 @@ package com.coffrefort.client.util;
 
 import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.layout.Region;
 
 public final class UIDialogs {
 

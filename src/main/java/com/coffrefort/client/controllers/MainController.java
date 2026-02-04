@@ -62,6 +62,7 @@ public class MainController {
     private NodeItem currentFolder;
     private App app;
     private String currentNameFolder;
+    private String currentNameFile;
 
     private Stage mainStage;
 
@@ -190,7 +191,7 @@ public class MainController {
             }
         });
 
-        //double clique sur une ligne
+        //clique sur une ligne
         table.setRowFactory(tv -> {
             TableRow<FileEntry> row = new TableRow<>();
 
@@ -212,7 +213,6 @@ public class MainController {
                     handleDownload(file);
                 }
             });
-
 
 //            au cas ou pour plus tard, si je veux changer...
 //            MenuItem deleteItem = new MenuItem("Supprimer...");
@@ -745,7 +745,7 @@ public class MainController {
 
 
     /**
-     * supprimer des fichiers
+     * gestion de suppression d'un fichier => ok
      */
     @FXML
     private void handleDelete() {
@@ -771,6 +771,9 @@ public class MainController {
 
             // Injection du stage et du nom de fichier
             controller.setDialogStage(dialogStage);
+
+            // personnaliser pour fichier
+            controller.setMessage("Voulez-vous vraiment supprimer ce fichier ?");
             controller.setFileName(selected.getName());
 
             //callbacks
@@ -788,44 +791,57 @@ public class MainController {
     }
 
     /**
-     * supprimer un file
+     * supprimer un file =>ok
      * @param file
      */
     private void deleteFile(FileEntry file) {
+        if (file == null) {
+            return;
+        }
         statusLabel.setText("Suppression en cours...");
+
+        //désactiver avant la suppression
+        shareButton.setDisable(true);
+        deleteButton.setDisable(true);
 
         new Thread(() -> {
             try {
-                boolean success = apiClient.deleteFile(file.getId());
+                apiClient.deleteFile(file.getId());
 
                 Platform.runLater(() -> {
-                    if (success) {
 
-                        fileList.remove(file);  // => ça n'enleve  que localement
+                    fileList.remove(file);  // => ça n'enleve  que localement
 
-                        if(currentFolder != null){ //=> recharger complètement le dossier
-                            loadFiles(currentFolder);
-                        }
-
-                        updateFileCount();
-                        updateQuota();
-
-                        //Désactiver les boutons de partage et supprime
-                        shareButton.setDisable(true);
-                        deleteButton.setDisable(true);
-
-                        shareButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
-                        deleteButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
-
-                        statusLabel.setText("Fichier supprimé: " + file.getName());
-                    } else {
-                        UIDialogs.showError("Erreur", null, "Impossible de supprimer le fichier.");
-                        statusLabel.setText("Erreur de suppression");
+                    if(currentFolder != null){ //=> recharger complètement le dossier
+                        loadFiles(currentFolder);
                     }
+
+                    //mise à jour le compteur et le quota
+                    updateFileCount();
+                    updateQuota();
+
+                    //garder les boutons désactivés => pas de sélection
+                    shareButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+                    deleteButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+
+                    statusLabel.setText("Fichier supprimé: " + file.getName());
+
+                    UIDialogs.showInfo("Suppression réussie",
+                            null,
+                            "Le fichier \"" + file.getName() + "\" a été supprimé."
+                    );
                 });
             } catch (Exception e) {
+                e.printStackTrace();
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Erreur", null, "Erreur: " + e.getMessage());
+                    //réactiver les boutons
+                    shareButton.setDisable(false);
+                    deleteButton.setDisable(false);
+
+                    shareButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+                    deleteButton.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+
+                    UIDialogs.showError("Erreur de suppression", null, "Erreur: " + e.getMessage());
                     statusLabel.setText("Erreur de suppression");
                 });
             }
@@ -995,11 +1011,12 @@ public class MainController {
     }
 
     /**
-     * pour gérer la suppression d'un dossier
+     * pour gérer la suppression d'un dossier =>ok
      * @param folder
-     * @param treeItem
+     * @param treeItem => élément visuel dans le TreeView
      */
     private void handleDeleteFolder(NodeItem folder, TreeItem<NodeItem> treeItem){
+        if(folder == null) return;
 
         try {
             FXMLLoader loader = new FXMLLoader(
@@ -1014,7 +1031,7 @@ public class MainController {
             Stage dialogStage = new Stage();
             dialogStage.setTitle("Confirmer la suppresion du dossier");
             dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(deleteButton.getScene().getWindow());
+            dialogStage.initOwner(treeView.getScene().getWindow());
             dialogStage.setScene(new Scene(root));
 
             // Injection du stage et du nom de fichier
@@ -1041,41 +1058,68 @@ public class MainController {
     }
 
     /**
-     * supprimer le dossier sur le serveur (via API) + mise à jour l'affichage
+     * supprimer le dossier sur le serveur (via API) + mise à jour l'affichage =>ok
      * @param folder
      * @param treeItem
      */
     private void deleteFolderOnServer(NodeItem folder, TreeItem<NodeItem> treeItem){
+        if(folder == null) return;
         statusLabel.setText("Suppression du dossier en cours ...");
 
         new Thread(() -> {
             try{
-                boolean success = apiClient.deleteFolder(folder.getId());
+                apiClient.deleteFolder(folder.getId());
 
                 Platform.runLater(() -> {
-                    if(success){
 
-                        //Si on est dans ce dossier => vider la table
-                        if(currentFolder != null && currentFolder.getId() ==  folder.getId()){
-                            fileList.clear();
-                            updateFileCount();
-                            currentFolder = null;
-                        }
-
-                        //recharger arborescence
-                        loadData();
-                        updateQuota();
-
-                        statusLabel.setText("Dossier supprimé: " + folder.getName());
-                    }else{
-                        UIDialogs.showError("Erreur", null, "Impossible de supprimer le dossier.");
-                        statusLabel.setText("Erreur de suppression du dossier.");
+                    //Si on est dans ce dossier => vider la table
+                    if(currentFolder != null && currentFolder.getId() ==  folder.getId()){
+                        fileList.clear();
+                        updateFileCount();
+                        currentFolder = null;
                     }
+
+                    //recharger arborescence
+                    loadData();
+                    updateQuota();
+
+                    statusLabel.setText("Dossier supprimé: " + folder.getName());
+
+                    UIDialogs.showInfo(
+                            "Suppression réussie",
+                            null,
+                            "Le dossier \"" + folder.getName() + "\" a été supprimé."
+                    );
                 });
             } catch (Exception e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Erreur", null, "Erreur lors de la suppression du dossier: " + e.getMessage());
+                    String errorMessage = e.getMessage();
+                    if(errorMessage != null && errorMessage.contains("fichiers")){
+                        UIDialogs.showError("Suppression impossible",
+                                null,
+                                "Le dossier contient des fichiers.\n" +
+                                        "Veuillez d'abord supprimer tous les fichiers."
+                        );
+                    }else if(errorMessage != null && errorMessage.contains("sous-dossiers")){
+                        UIDialogs.showError("Suppression impossible",
+                                null,
+                                "Le dossier contient des sous-dossiers.\n" +
+                                        "Veuillez d'abord supprimer tous les sous-dossiers."
+                        );
+                    }else if(errorMessage != null && errorMessage.contains("introuvable")){
+                        UIDialogs.showError("Suppression impossible",
+                                null,
+                                "Dossier introuvable ou déjà supprimé."
+                        );
+                    }else{
+                        UIDialogs.showError(
+                                "Erreur de suppression",
+                                null,
+                                "Erreur lors de la suppression du dossier.\n" +
+                                        (errorMessage != null ? errorMessage : "Erreur inconnue")
+                        );
+                    }
                     statusLabel.setText("Erreur de suppression du dossier");
                 });
             }
@@ -1083,7 +1127,7 @@ public class MainController {
     }
 
     /**
-     * Gestion de déconnexion
+     * Gestion de déconnexion =>ok
      */
     @FXML
     private void handleLogout() {
@@ -1129,10 +1173,8 @@ public class MainController {
 //                                getClass().getResource("/com/coffrefort/client/login2.fxml")
 //                        );
 //                        Parent loginRoot = loginLoader.load();
-//
 //                        // Récupérer le contrôleur du login
 //                        LoginController loginController = loginLoader.getController();
-//
 //                        // Injecter l'ApiClient existant
 //                        loginController.setApiClient(apiClient);
 
@@ -1207,10 +1249,12 @@ public class MainController {
 
 
     /**
-     * ouvrir le dialog renameFolder.fxml pour renommer un dossier
+     * ouvrir le dialog renameFolder.fxml pour renommer un dossier =>ok
      * @param folder
      */
     private void openRenameFolderDialog(NodeItem folder){
+        if(folder == null) return;
+
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/com/coffrefort/client/renameFolder.fxml")
@@ -1234,6 +1278,7 @@ public class MainController {
 
             controller.setOnConfirm(newName -> {
 
+                //vérif si les 2 noms sont identiques
                 if(newName.trim().equals(currentNameFolder)){
                     Platform.runLater(() -> {
                         UIDialogs.showError("Renommer", null , "Le nouveau nom est identique à l'ancien");
@@ -1249,16 +1294,34 @@ public class MainController {
                         apiClient.renameFolder(folder.getId(), newName, currentNameFolder); //=> il faut id et name, currenNameFolder au cas ou
 
                         Platform.runLater(() -> {
-                            dialogStage.close(); //=> fermer si succès
-                            loadData(); // => refresh Tree
-                            statusLabel.setText("Dossier renommé en " + newName);
 
+                            loadData(); // => refresh Tree (arborescence
+                            statusLabel.setText("Dossier renommé en \"" + newName + "\"");
+
+                            UIDialogs.showInfo(
+                                    "Renommage réussi",
+                                    null,
+                                    "Le dossier a été renommé en \"" + newName + "\"."
+                            );
+
+                            // il faut laisser içi!!! => sinon showInfo de renommage ne s'affiche pas!!
+                            dialogStage.close(); //=> fermer si succès
+                        });
+
+                    } catch (IllegalArgumentException e) {
+                        //Erreur de validation => nom vide, caractères invalides..
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            UIDialogs.showError("Erreur de validation", null, e.getMessage());
+                            statusLabel.setText("Erreur pendant le renommage");
+                            // pas fermer le dialogue
                         });
                     }catch (Exception e){
                         e.printStackTrace();
                         Platform.runLater(() -> {
-                            UIDialogs.showError("Renommer", null, "Erreur: " + e.getMessage());
+                            UIDialogs.showError("Erreur de renommage", null, "Erreur: " + e.getMessage());
                             statusLabel.setText("Erreur pendant le renommage");
+                            // pas fermer le dialogue
                         });
                     }
                 }).start();
@@ -1274,10 +1337,12 @@ public class MainController {
     }
 
     /**
-     * ouvrir le dialog renameFile.fxml pour renommer un fichier
+     * ouvrir le dialog renameFile.fxml pour renommer un fichier =>ok
      * @param file
      */
     private void openRenameFileDialog(FileEntry file){
+        if(file == null) return;
+
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/com/coffrefort/client/renameFile.fxml")
@@ -1291,35 +1356,68 @@ public class MainController {
             Stage dialogStage = new Stage();
             dialogStage.setTitle("Renommer le fichier");
             dialogStage.initModality(Modality.WINDOW_MODAL);
-//            dialogStage.initOwner(treeView.getScene().getWindow()); ???????????????
+//            dialogStage.initOwner(treeView.getScene().getWindow()); => il est dans la table et pas dans treeView!!
             dialogStage.initOwner(table.getScene().getWindow());
             dialogStage.setResizable(false);
             dialogStage.setScene(new Scene(root));
 
+
+            dialogStage.setWidth(420);
+            dialogStage.setHeight(400);
+
             controller.setStage(dialogStage);
 
-            controller.setCurrentName(file.getName());
+            currentNameFile =file.getName();
+            controller.setCurrentName(currentNameFile);
 
             controller.setOnConfirm(newName -> {
+
+                //vérif si les 2 noms sont identiques
+                if(newName.trim().equals(currentNameFile)){
+                    Platform.runLater(() -> {
+                        UIDialogs.showError("Renommer", null, "Le nouveau nom est identique à l'ancien.");
+                        //dialogStage.close();
+                    });
+                    return;
+                }
+
                 statusLabel.setText("Renommage en cours...");
                 new Thread(() -> {
                     try {
                         apiClient.renameFile(file.getId(), newName); //=> il faut id et name
                         Platform.runLater(() -> {
+                            dialogStage.close();
+
                             if(currentFolder != null){
                                 loadFiles(currentFolder);
                             }else{
-                                loadData(); // => refresh
+                                loadData(); // => refresh tout
                             }
-                            statusLabel.setText("Fichier renommé en " + newName);
+                            statusLabel.setText("Fichier renommé en \"" + newName + "\"");
                             statusLabel.setVisible(true);
+
+                            UIDialogs.showInfo(
+                                    "Renommage réussi",
+                                    null,
+                                    "Le fichier a été renommé en \"" + newName + "\"."
+                            );
+                        });
+                    } catch (IllegalArgumentException e) {
+                        // erreur de validation
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            UIDialogs.showError("Erreur de validation", null, e.getMessage());
+                            statusLabel.setText("Erreur pendant le renommage");
+                            statusLabel.setVisible(true);
+                            // pas fermer le dialogue
                         });
                     }catch (Exception e){
                         e.printStackTrace();
                         Platform.runLater(() -> {
-                            UIDialogs.showError("Renommer", null,"Erreur: " + e.getMessage());
+                            UIDialogs.showError("Erreur de renommage", null,"Erreur: " + e.getMessage());
                             statusLabel.setText("Erreur pendant le renommage");
                             statusLabel.setVisible(true);
+                            // pas fermer le dialogue
                         });
                     }
                 }).start();
@@ -1334,7 +1432,10 @@ public class MainController {
         }
     }
 
-
+    /**
+     * ouvrir le dialog fileDetails.fxml pour voir les versions d'un fichier =>ok
+     * @param file
+     */
     private void openFileDetailsDialog (FileEntry file){
 
         try {
@@ -1366,7 +1467,6 @@ public class MainController {
                        }
                        updateQuota();
                        statusLabel.setText("Version remplacée: " + file.getName());
-
            }));
 
             dialogStage.showAndWait();

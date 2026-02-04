@@ -8,6 +8,7 @@ import javafx.stage.Stage;
 public class ConfirmDeleteController {
 
     //propriétés
+    @FXML private Label messageLabel;
     @FXML private Label fileNameLabel;
 
     @FXML private Button cancelButton;
@@ -25,9 +26,8 @@ public class ConfirmDeleteController {
      * Initialise le contrôleur au chargement FXML (point d’extension pour logs ou configuration)
      */
     private void initialize() {
-        // on peut ajouter du log si besoin
+        // opossibleajouter du log si besoin
     }
-
 
     /**
      * Injecte le Stage de la fenêtre de confirmation afin de pouvoir la fermer depuis le contrôleur
@@ -37,6 +37,15 @@ public class ConfirmDeleteController {
         this.dialogStage = dialogStage;
     }
 
+    /**
+     * définir le message
+     * @param message
+     */
+    public void setMessage(String message){
+        if(messageLabel != null){
+            messageLabel.setText(message != null ? message : "");
+        }
+    }
 
     /**
      * Affiche dans le dialogue le nom du fichier sélectionné pour confirmer la suppression
