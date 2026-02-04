@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import com.coffrefort.client.config.AppProperties;
 import com.coffrefort.client.util.UIDialogs;
+import com.coffrefort.client.util.FileUtils;
 import javafx.scene.Node;
 
 public class MainController {
@@ -609,13 +610,15 @@ public class MainController {
 
 
     /**
-     * Gestion d'upload des fichiers
+     * Gestion d'upload des fichiers =>ok
      */
     @FXML
     private void handleUpload() {
 
         if(currentQuota != null && currentQuota.getUsed() >= currentQuota.getMax()){
-            UIDialogs.showError("Quota atteint", null, "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
+            UIDialogs.showError("Quota atteint",
+                    null,
+                    "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
             return;
         }
 
@@ -849,7 +852,7 @@ public class MainController {
     }
 
     /**
-     * gestion de téléchargement
+     * gestion de téléchargement d'un fichier =>ok
      * @param file
      */
     private void handleDownload(FileEntry file) {
@@ -864,15 +867,8 @@ public class MainController {
         // définir le nom => par défaut
         chooser.setInitialFileName(file.getName());
 
-        //pour définir un filtre par extension
-        chooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("PDF", "*.pdf"),
-                new FileChooser.ExtensionFilter("Images (*.jpg, *.jpeg, *.png, *.webp)", "*.jpg", "*.jpeg", "*.png", "*.webp"),
-                new FileChooser.ExtensionFilter("Documents Word (*.doc, *.docx)", "*.doc", "*.docx"),
-                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*"));
-
-        //filtre séléctionné par défaut
-        chooser.setSelectedExtensionFilter(chooser.getExtensionFilters().get(0));
+        //configuration automatique les filtres
+        FileUtils.configureFileChooserFilter(chooser, file.getName());
 
         File target = chooser.showSaveDialog(table.getScene().getWindow());
         if (target == null){
@@ -889,11 +885,17 @@ public class MainController {
                 Platform.runLater(() -> {
                     statusLabel.setText("Téléchargé " + target.getAbsolutePath());
                     updateQuota();
+
+                    UIDialogs.showInfo(
+                            "Téléchargement réussi",
+                            null, "Le fichier a été téléchargé: \n"
+                                    + target.getAbsolutePath()
+                    );
                 });
             }catch (Exception e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    UIDialogs.showError("Téléchargement", null, "Impossible de télécharger: " + e.getMessage());
+                    UIDialogs.showError("Téléchargement échoué", null, "Impossible de télécharger: " + e.getMessage());
                     statusLabel.setText("Erreur de téléchargement");
                 });
             }
@@ -1386,7 +1388,7 @@ public class MainController {
                     try {
                         apiClient.renameFile(file.getId(), newName); //=> il faut id et name
                         Platform.runLater(() -> {
-                            dialogStage.close();
+                            //dialogStage.close(); => si je laisse içi le texte de showInfo ne voit pas
 
                             if(currentFolder != null){
                                 loadFiles(currentFolder);
@@ -1401,6 +1403,7 @@ public class MainController {
                                     null,
                                     "Le fichier a été renommé en \"" + newName + "\"."
                             );
+                            dialogStage.close();
                         });
                     } catch (IllegalArgumentException e) {
                         // erreur de validation

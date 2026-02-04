@@ -60,46 +60,48 @@
     </Separator>
 
     <!-- Zone de message + input -->
-    <VBox spacing="10">
-
-        <Label alignment="CENTER"
-               prefWidth="370"
-               wrapText="true"
-               textAlignment="CENTER"
-               style="-fx-text-fill: #333333; -fx-font-size: 13px;"
-               text="Nom actuel :"/>
-
+    <!-- Nom actuel -->
+    <VBox spacing="5">
+        <Label text="Nom actuel :"
+               style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
         <Label fx:id="currentNameLabel"
-               alignment="CENTER"
-               prefWidth="370"
+               text="NomDuFichier.ext"
                wrapText="true"
-               textAlignment="CENTER"
-               style="-fx-text-fill: #980b0b;
-                    -fx-font-weight: bold;
-                    -fx-font-size: 13px;"
-               text="NomDuFichier.ext"/>
-
-        <TextField fx:id="nameField"
-                   promptText="Nouveau nom du fichier"
-                   style="-fx-background-radius: 6;
-                        -fx-border-radius: 6;
-                        -fx-border-color: #cccccc;
-                        -fx-padding: 8 10;"/>
-
-        <!-- message erreur (caché par défaut) -->
-        <Label fx:id="errorLabel"
-               visible="false"
-               managed="false"
-               alignment="CENTER"
-               prefWidth="370"
-               wrapText="true"
-               textAlignment="CENTER"
-               style="-fx-background-color: #ffe5e5;
-                    -fx-text-fill: #980b0b;
-                    -fx-font-weight: bold;
-                    -fx-background-radius: 6;"
-               text="Erreur"/>
+               style="-fx-text-fill: #333333; -fx-font-weight: bold;"/>
     </VBox>
+
+    <!-- Nouveau nom (sans extension) -->
+    <VBox spacing="5">
+        <Label text="Nouveau nom (sans extension) :"
+               style="-fx-text-fill: #666666; -fx-font-size: 12px;"/>
+
+        <HBox spacing="5" alignment="CENTER_LEFT">
+            <TextField fx:id="nameField"
+                       promptText="Entrez le nouveau nom"
+                       HBox.hgrow="ALWAYS"
+                       style="-fx-font-size: 13px;"/>
+
+            <!-- ✅ AJOUT : Afficher l'extension qui sera ajoutée automatiquement -->
+            <Label fx:id="extensionLabel"
+                   text=".pdf"
+                   style="-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 13px;"/>
+        </HBox>
+    </VBox>
+
+    <!-- message erreur (caché par défaut) -->
+    <Label fx:id="errorLabel"
+           visible="false"
+           managed="false"
+           alignment="CENTER"
+           prefWidth="370"
+           wrapText="true"
+           textAlignment="CENTER"
+           style="-fx-background-color: #ffe5e5;
+                -fx-text-fill: #980b0b;
+                -fx-font-weight: bold;
+                -fx-background-radius: 6;"
+           text="Erreur"/>
+
 
     <Region VBox.vgrow="ALWAYS"/>
 

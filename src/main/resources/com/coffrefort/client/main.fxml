@@ -240,6 +240,10 @@
             <Hyperlink text="Mes partages"
                        onAction="#handleOpenShares"
                        style="-fx-text-fill: #980b0b; -fx-cursor: hand; -fx-font-size: 11px;"/>
+
+<!--            <Hyperlink text="Historique" ???-->
+<!--                       onAction="#handleOpenHistorique"-->
+<!--                       style="-fx-text-fill: #980b0b; -fx-cursor: hand; -fx-font-size: 11px;"/>-->
         </HBox>
     </bottom>
 

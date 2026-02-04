@@ -1188,7 +1188,7 @@ public class ApiClient {
     }
 
     /**
-     * Upload une nouvelle version d’un fichier via POST /files/{id}/versions en multipart avec suivi de progression
+     * Upload une nouvelle version d’un fichier via POST /files/{id}/versions en multipart avec suivi de progression =>ok
      * @param fileId
      * @param newFile
      * @param progress
