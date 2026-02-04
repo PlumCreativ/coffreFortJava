@@ -20,7 +20,7 @@ import java.time.format.DateTimeFormatter;
 public class VersionEntry {
 
     //propriétés
-    private long id;
+    private int id;
     private int version;
     private long size;
     private String createdAt;
@@ -30,7 +30,7 @@ public class VersionEntry {
     //méthodes
     public VersionEntry(){}
 
-    public VersionEntry(long id, int version, long size, String createdAt, String checksum, Boolean isCurrent) {
+    public VersionEntry(int id, int version, long size, String createdAt, String checksum, Boolean isCurrent) {
         this.id = id;
         this.version = version;
         this.size = size;
@@ -39,11 +39,11 @@ public class VersionEntry {
         this.isCurrent = isCurrent;
     }
 
-    public long getId() {
+    public int getId() {
         return id;
     }
 
-    public void setId(long id){
+    public void setId(int id){
         this.id = id;
     }
 

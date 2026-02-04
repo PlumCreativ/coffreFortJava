@@ -60,7 +60,8 @@
 
     <!-- Zone de message -->
     <VBox spacing="8">
-        <Label alignment="CENTER"
+        <Label fx:id="messageLabel"
+               alignment="CENTER"
                prefWidth="370"
                wrapText="true"
                textAlignment="CENTER"
