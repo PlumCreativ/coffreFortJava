@@ -6,18 +6,22 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 
+import com.coffrefort.client.util.FileUtils;
+
 import java.util.function.Consumer;
 
 public class RenameFileController {
 
     @FXML private Label currentNameLabel;
     @FXML private TextField nameField;
+    @FXML private Label extensionLabel;
     @FXML private Label errorLabel;
     @FXML private Button cancelButton;
     @FXML private Button confirmButton;
 
     private Stage dialogStage;
     private Consumer<String> onConfirm;
+    private String fileExtension = "";
 
     /**
      * Injecte le Stage de la fenêtre modale pour pouvoir la fermer depuis le contrôleur
@@ -28,12 +32,42 @@ public class RenameFileController {
     }
 
     /**
-     * Affiche le nom actuel, pré-remplit le champ de saisie et sélectionne le texte pour un renommage rapide
+     * Affiche le nom actuel, pré-remplit le champ de saisie et sélectionne le texte pour un renommage rapide =>ok
      * @param name
      */
     public void setCurrentName(String name) {
+        if(name == null || name.isEmpty()){
+            return;
+        }
         currentNameLabel.setText(name);
-        nameField.setText(name);
+
+        // extraire l'extension
+        int lastDot = name.lastIndexOf('.');
+
+        //vérif si le point existe et n'est pas à la fin
+        if(lastDot != -1 && lastDot < name.length() - 1 ){
+
+            // il y a une extension
+            fileExtension = name.substring(lastDot); //=> .pdf
+
+            //String nameWithoutExtension = name.substring(0, lastDot);
+            String nameWithoutExtension = FileUtils.removeExtension(name);
+
+            //préremplir sans l'extension
+            nameField.setText(nameWithoutExtension);
+
+            if(extensionLabel != null){
+                extensionLabel.setText(fileExtension);
+            }
+        }else{
+            fileExtension = "";
+            nameField.setText(name);
+
+            if(extensionLabel != null){
+                extensionLabel.setText("");
+            }
+        }
+
         nameField.requestFocus();
         nameField.selectAll();
     }
@@ -58,7 +92,7 @@ public class RenameFileController {
 
     @FXML
     /**
-     * Valide le nouveau nom, affiche une erreur si vide, sinon appelle le callback puis ferme la fenêtre
+     * Valide le nouveau nom, affiche une erreur si vide, sinon appelle le callback puis ferme la fenêtre =>ok
      */
     private void handleConfirm() {
         String newName = nameField.getText() == null ? "" : nameField.getText().trim();
@@ -70,8 +104,10 @@ public class RenameFileController {
 
         hideError();
 
+        String fullName = newName + fileExtension;
+
         if (onConfirm != null) {
-            onConfirm.accept(newName);
+            onConfirm.accept(fullName);
         }
         //pas mettre !!!=> si je le mets : error 'nom identique' fenêtre renamefile se ferme!!!
        // if (dialogStage != null) dialogStage.close();

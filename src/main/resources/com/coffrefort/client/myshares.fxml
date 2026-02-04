@@ -32,11 +32,11 @@
 
             <TableColumn fx:id="labelCol"
                          text="Label"
-                         prefWidth="180"/>
+                         prefWidth="200"/>
 
             <TableColumn fx:id="expiresCol"
                          text="Expire le"
-                         prefWidth="120"/>
+                         prefWidth="180"/>
 
             <TableColumn fx:id="remainingCol"
                          text="Restant"

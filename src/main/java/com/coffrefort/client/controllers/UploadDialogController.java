@@ -2,6 +2,7 @@ package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.model.Quota;
+import com.coffrefort.client.util.FileUtils;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -41,6 +42,8 @@ public class UploadDialogController {
     private Runnable onUploadSuccess;
 
     private Integer targetFolderId;
+
+
 
 
     //méthodes
@@ -96,8 +99,8 @@ public class UploadDialogController {
     }
 
 
-    /** à compléter et à vérifier!!!
-     * Gestion de la sélection d'un file ou plusieurs file
+    /**
+     * Gestion de la sélection d'un file ou plusieurs file =>ok
      * Ouvre un FileChooser pour sélectionner un ou plusieurs fichiers et met à jour la liste affichée
      */
     @FXML
@@ -110,24 +113,51 @@ public class UploadDialogController {
         // une autre possibilité pour choisir des fichiers
         // fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tous les fichiers", "*.*"));
 
+        //filtrer les types de fichiers autorisés
+        fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png", "*.webp"),
+                new FileChooser.ExtensionFilter("Documents PDF", "*.pdf"),
+                new FileChooser.ExtensionFilter("Documents Word", "*.doc", "*.docx"),
+                new FileChooser.ExtensionFilter("Fichiers Excel", "*.xlsx"),
+                new FileChooser.ExtensionFilter("Tous les fichiers autorisés",
+                        "*.jpg", "*.jpeg", "*.png", "*.webp", "*.pdf", "*.doc", "*.docx", "*.xlsx")
+        );
+
         List<File> files = fileChooser.showOpenMultipleDialog(owner);
         if (files != null && !files.isEmpty()) {
             //selectedFiles.clear(); => ce supprime tout!!!
 
             for(File file : files){
+
+                //vérif enxtension avant d'ajouter
+                String extension = FileUtils.getFileExtension(file.getName());
+
+                if(!FileUtils.isExtensionAllowed(extension)) {
+                    showErrorMessage(
+                            "Fichier non autorisé : " + file.getName() + "\n" +
+                                    "Extensions autorisées : " + FileUtils.getAllowedExtensionString()
+                    );
+                    continue; //=> passer au fichier suivant
+                }
+
                 if(!selectedFiles.contains(file)){
                     selectedFiles.add(file);
                 }
             }
 
             refreshSelectedFilesUI();
-            uploadButton.setDisable(false);
+            if(!selectedFiles.isEmpty()){
+                uploadButton.setDisable(false);
+            }
+
             hideMessage();
         }
     }
 
+
+
     /**
-     * Vérifie les prérequis (ApiClient, fichiers, dossier, quota) puis upload les fichiers en tâche de fond avec progression
+     * Vérifie les prérequis (ApiClient, fichiers, dossier, quota) puis upload les fichiers en tâche de fond avec progression =>ok
      */
     @FXML
     private void handleUpload() {
@@ -146,6 +176,28 @@ public class UploadDialogController {
             showErrorMessage("Aucun dossier sélectionné pour l'upload.");
             return;
         }
+
+        //vérif si tous les fichiers ont des extensions valides
+        List<String> invalidFiles = new ArrayList<>();
+        for(File file : selectedFiles){
+            String extension = FileUtils.getFileExtension(file.getName());
+            if(!FileUtils.isExtensionAllowed(extension)){
+                invalidFiles.add(file.getName());
+            }
+        }
+
+        if(!invalidFiles.isEmpty()){
+            // \n =>retour à la ligne
+            //String.join(", ", invalidFiles) => document.txt, video.mp4
+            showErrorMessage(
+                    "Certains fichiers ont des extensions non autorisées :\n" +
+                            String.join(", ", invalidFiles) + "\n\n" +
+                            "Extensions autorisées : " + FileUtils.getAllowedExtensionString()
+            );
+            return;
+        }
+
+        //vérif quota
         try{
             Quota quota = apiClient.getQuota();
 
@@ -163,8 +215,8 @@ public class UploadDialogController {
             if(totalUploadSize > remaining){
                 showErrorMessage(
                         "Espace de stockage insuffisant.\n\n" +
-                            "Espace disponible : " + formatSize(remaining) + "\n" +
-                            "Taille totale des fichiers sélectionnés : " + formatSize(totalUploadSize)
+                            "Espace disponible : " + FileUtils.formatSize(remaining) + "\n" +
+                            "Taille totale des fichiers sélectionnés : " + FileUtils.formatSize(totalUploadSize)
                 );
                 return;
             }
@@ -277,8 +329,6 @@ public class UploadDialogController {
         });
 
         new Thread(uploadTask, "upload-task").start();
-
-
     }
 
     /**
@@ -294,7 +344,7 @@ public class UploadDialogController {
     // ====== Méthodes utilitaires ======
 
     /**
-     * Met à jour la liste visuelle des fichiers sélectionnés avec leur taille et un bouton de suppression
+     * Met à jour la liste visuelle des fichiers sélectionnés avec leur taille et un bouton de suppression =>ok
      */
     private void refreshSelectedFilesUI() {
         selectedFilesList.getChildren().clear();
@@ -315,7 +365,7 @@ public class UploadDialogController {
             Label nameLabel = new Label(file.getName());
             nameLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #333333;");
 
-            Label sizeLabel = new Label(formatSize(file.length()));
+            Label sizeLabel = new Label(FileUtils.formatSize(file.length()));
             sizeLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #777777;");
 
             Button removeBtn = new Button("✖");
@@ -330,20 +380,7 @@ public class UploadDialogController {
         }
     }
 
-    /** à vérifier => il y a un FileEntry et dans le MainController
-     * Convertit une taille en octets en format lisible (o, Ko, Mo, Go) pour l’affichage
-     * @param bytes
-     * @return
-     */
-    private String formatSize(long bytes) {
-        if (bytes < 1024) return bytes + " o";
-        double kb = bytes / 1024.0;
-        if (kb < 1024) return String.format("%.1f Ko", kb);
-        double mb = kb / 1024.0;
-        if (mb < 1024) return String.format("%.1f Mo", mb);
-        double gb = mb / 1024.0;
-        return String.format("%.2f Go", gb);
-    }
+
 
     /**
      * Affiche un message d’erreur stylé dans le label de message.

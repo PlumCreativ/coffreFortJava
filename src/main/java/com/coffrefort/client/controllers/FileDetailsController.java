@@ -5,6 +5,7 @@ import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.model.FileEntry;
 import com.coffrefort.client.model.VersionEntry;
 import com.coffrefort.client.util.UIDialogs;
+import com.coffrefort.client.util.FileUtils;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
@@ -491,7 +492,7 @@ public class FileDetailsController {
     //=============== Action UI ==============
     @FXML
     /**
-     * Permet de sélectionner un fichier local et d’uploader une nouvelle version avec suivi de progression
+     * Permet de sélectionner un fichier local et d’uploader une nouvelle version avec suivi de progression =>ok
      */
     private void onReplace(){
 
@@ -505,12 +506,37 @@ public class FileDetailsController {
             return;
         }
 
+        String currentFileName = file.getName();
+        String currentExtension = FileUtils.getFileExtension(currentFileName);
+
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Choisir un fichier pour remplacer");
         chooser.setInitialFileName(file.getName());
 
+        // filtrer par extension du fichier actuel
+        if(currentExtension != null && !currentExtension.isEmpty()){
+            chooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter(
+                            "Fichiers " + currentExtension.toUpperCase(), "*." + currentExtension));
+        }
+
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*")
+        );
+
         File selected = chooser.showOpenDialog(stage);
         if(selected == null) return;
+
+        //vérif si l'extension du selected correspond
+        String selectedExtension = FileUtils.getFileExtension(selected.getName());
+        if(!currentExtension.equalsIgnoreCase(selectedExtension)){
+            UIDialogs.showError("Type de fichier incorrect", null,
+                    "Le fichier de remplacement doit avoir le même extension. \n" +
+                            "Attendu : ." + currentExtension + "\n" +
+                            "Reçu: ." + selectedExtension
+                    );
+            return;
+        }
 
         hideError();
         setProgressVisible(true);
@@ -527,7 +553,7 @@ public class FileDetailsController {
 
         uploadService.setOnSucceeded(event -> {
 
-            //débind
+            //unbind
             uploadProgressBar.progressProperty().unbind();
             uploadStatusLabel.textProperty().unbind();
             replaceButton.disableProperty().unbind();
@@ -562,6 +588,7 @@ public class FileDetailsController {
 
         uploadService.start();
     }
+
 
     @FXML
     /**
@@ -637,18 +664,12 @@ public class FileDetailsController {
 
     @FXML
     /**
-     * Télécharge une version spécifique du fichier avec affichage de la progression
+     * Télécharge une version spécifique du fichier avec affichage de la progression =>ok
      */
     private void onDownloadVersion(){
         VersionEntry sel = versionsTable.getSelectionModel().getSelectedItem();
 
         if(sel == null || file == null) return;
-
-        //blockage pour l'instant car le backend n'a pas encore ce endpoint !!!!!!!!!!!!!!!!!!!!!!!!!!!
-//        if(!apiClient.isVersionDownloadSupported()){
-//            UIDialogs.showError("Pas encore disponible", "Le telechargement d'une version concrete n'est pas ecrit par le backend");
-//            return;
-//        }
 
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Enregistrer la version " + sel.getVersion());
@@ -656,15 +677,8 @@ public class FileDetailsController {
         //chooser.setInitialFileName(file.getName() + "_v" + sel.getVersion());
         chooser.setInitialFileName("v" + sel.getVersion() + "_" + file.getName());
 
-        //pour définir un filtre par extension
-        chooser.getExtensionFilters().addAll(
-                new FileChooser.ExtensionFilter("PDF", "*.pdf"),
-                new FileChooser.ExtensionFilter("Images (*.jpg, *.jpeg, *.png, *.webp)", "*.jpg", "*.jpeg", "*.png", "*.webp"),
-                new FileChooser.ExtensionFilter("Documents Word (*.doc, *.docx)", "*.doc", "*.docx"),
-                new FileChooser.ExtensionFilter("Tous les fichiers (*.*)", "*.*"));
-
-        //filtre séléctionné par défaut
-        chooser.setSelectedExtensionFilter(chooser.getExtensionFilters().get(0));
+        //configuration automatique les filtres
+        FileUtils.configureFileChooserFilter(chooser, file.getName());
 
         File target = chooser.showSaveDialog(stage);
         if(target == null) return;
