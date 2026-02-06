@@ -2,7 +2,10 @@ package com.coffrefort.client.model;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ShareItem {
 
     //propriétés
@@ -17,6 +20,10 @@ public class ShareItem {
     private String url;
     private Integer remainingUses;
     private Integer maxUses;
+    private String folderName;
+    private String fileName;
+
+    @JsonProperty("is_revoked")
     private boolean revoked;
     private boolean allowFixedVersion;
 
@@ -38,8 +45,30 @@ public class ShareItem {
     public String getKind() {return kind;}
     public void setKind(String kind) {this.kind = kind;}
 
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public String getFolderName() {
+        return folderName;
+    }
+
+    public void setFolderName(String folderName) {
+        this.folderName = folderName;
+    }
+
     public String getResource() {
-        return resource;
+        if(folderName != null && !folderName.isBlank()){
+            return folderName;
+        }
+        if(fileName != null && !fileName.isBlank()){
+            return fileName;
+        }
+        return resource != null ? resource : "Ressource inconnue";
     }
     public void setResource(String resource) {
         this.resource = resource;

@@ -132,7 +132,7 @@ public class App extends Application {
             MainController controller = loader.getController();
             controller.setApiClient(apiClient);
             controller.setApp(this);  //passer App en référence au MainController
-
+            controller.checkAdminRole();
             //loader.setController(controller);
 
             System.out.println("App - Controller configuré, chargement du root...");
@@ -144,6 +144,7 @@ public class App extends Application {
             //réutiliser le stage existant à la place de créer un nouveau
             Scene scene = new Scene(root, 1024, 640);
             loginStage.setTitle("Coffre‑fort — Espace personnel");
+
             loginStage.setScene(scene);
             loginStage.setWidth(1024);
             loginStage.setHeight(640);

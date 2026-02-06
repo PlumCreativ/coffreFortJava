@@ -52,4 +52,7 @@
         </columns>
     </TableView>
 
+    <!-- Pagination -->
+    <Pagination fx:id="pagination" maxPageIndicatorCount="7"/>
+
 </VBox>

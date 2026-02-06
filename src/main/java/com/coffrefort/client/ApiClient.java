@@ -37,6 +37,7 @@ public class ApiClient {
     private final HttpClient httpClient;
     private final String baseUrl;
     private String authToken;
+    private Boolean isAdmin;
     private final HttpClient http = HttpClient.newHttpClient();
 
 
@@ -113,9 +114,23 @@ public class ApiClient {
             throw new Exception("Token JWT non reçu du serveur.");
         }
 
+//        String isAdminStr = JsonUtils.extractJsonNumberField(responseBody, "is_admin");
+//        System.out.println("DEBUG - is_admin extrait: '" + isAdminStr + "'");
+//        if(isAdminStr != null){
+//            this.isAdmin = "1".equals(isAdminStr.trim());
+//        }else{
+//            this.isAdmin = false;
+//        }
+//        System.out.println("DEBUG - this.isAdmin: " + this.isAdmin);
         setAuthToken(token);
 
         return token;
+    }
+
+
+
+    public Boolean isAdmin(){
+        return this.isAdmin;
     }
 
     /**
@@ -235,6 +250,17 @@ public class ApiClient {
                 AppProperties.set("auth.userId", userId);
             }
             System.out.println("setAuthToken() userId = " + userId);
+
+            //extraire is_admin
+            Boolean isAdminBoolean = JwtUtils.extractIsAdmin(token);
+            if(isAdminBoolean != null){
+                this.isAdmin = isAdminBoolean;
+                AppProperties.set("auth.isAdmin", isAdminBoolean.toString());
+            }else{
+                this.isAdmin = false;
+            }
+            System.out.println("setAuthToken() isAdmin = " + this.isAdmin);
+
         }
     }
 
@@ -444,6 +470,7 @@ public class ApiClient {
      */
     public void logout() {
         this.authToken = null;
+        this.isAdmin = false;
         AppProperties.remove("auth.token");
         AppProperties.remove("auth.email");
         System.out.println("Déconnexion effectuée.");
@@ -882,19 +909,20 @@ public class ApiClient {
     }
 
     /**
-     * Récupère tous les partages via GET /shares et les parse en List<ShareItem>
+     * Récupère tous les partages via GET /shares et les parse en List<ShareItem> => sans pagination
+     * PagedShareResponse listShares(int limit, int offset) => pour la pagination
      * @return
      * @throws Exception
      */
-    public List<ShareItem> listShares() throws Exception {
+    public PagedShareResponse listShares(int limit, int offset) throws Exception {
 
-        System.out.println("ApiClient - listShares() démarrage...");
-        System.out.println("ApiClient - URL: " + baseUrl + "/shares");
+        System.out.println("ApiClient - listShares(limit, offset) démarrage...");
+        System.out.println("ApiClient - URL: " + baseUrl + "/shares?limit=" +limit + "&offset=" + offset);
         System.out.println("ApiClient - Token: " + (authToken != null ? "présent" : "absent"));
 
         // Construction de la requête HTTP
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/shares"))
+                .uri(URI.create(baseUrl + "/shares?limit=" +limit + "&offset=" + offset))
                 .header("Accept", "application/json")
                 //.header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + authToken)
@@ -911,11 +939,20 @@ public class ApiClient {
             throw new RuntimeException("Erreur de partage: (HTTP " + status + "): " + response.body());
         }
 
-        // Parser JSON en List<ShareItem>
-        List<ShareItem> shares = JsonUtils.parseShareItem(response.body());
-        System.out.println("ApiClient - Nombre de partages parsés: " + shares.size());
+        // Parser JSON en List<ShareItem> => ancien sans pagination
+//        List<ShareItem> shares = JsonUtils.parseShareItem(response.body());
+//        System.out.println("ApiClient - Nombre de partages parsés: " + shares.size());
+//        return shares;
 
-        return shares;
+        //parser JSON en PagedSharesREsponse
+        var paged = JsonUtils.parsePagedSharesResponse(response.body());
+
+        System.out.println("ApiClient - Total: " + paged.getTotal()
+                + ", limit: " + paged.getLimit()
+                + ", offset: " + paged.getOffset()
+                + ", reçus: " + (paged.getShares() != null ? paged.getShares().size() : 0));
+
+        return paged;
     }
 
     /**
@@ -1291,8 +1328,70 @@ public class ApiClient {
         }
 
         return JsonUtils.parseFileEntry(response.body());
+    }
 
+    /**
+     * Récupère tous les utilisateurs avec leurs quotas (admin uniquement) =>ok
+     */
+    public List<UserQuota> getAllUsersWithQuota() throws Exception {
+        if (authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié");
+        }
 
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/admin/users/quotas"))
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        String body = response.body();
+
+        if (status == 200) {
+            return JsonUtils.parseUserQuotaList(body);
+        }
+
+        if (status == 401 || status == 403) {
+            throw new AuthenticationException("Non autorisé");
+        }
+
+        throw new RuntimeException("Erreur: " + body);
+    }
+
+    /**
+     * Modifie le quota d'un utilisateur (admin uniquement)
+     */
+    public void updateUserQuota(int userId, long newQuotaBytes) throws Exception {
+        if (authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié");
+        }
+
+        String json = "{\"quota\":" + newQuotaBytes + "}";
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/admin/users/" + userId + "/quota"))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .PUT(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+
+        if (status == 200 || status == 204) {
+            return;
+        }
+
+        if (status == 401 || status == 403) {
+            throw new AuthenticationException("Non autorisé");
+        }
+
+        String error = JsonUtils.extractJsonField(response.body(), "error");
+        throw new RuntimeException(error != null ? error : "Erreur lors de la modification");
     }
 
 

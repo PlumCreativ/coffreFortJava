@@ -1,14 +1,21 @@
 package com.coffrefort.client.util;
 
 
-import com.coffrefort.client.model.ShareItem;
-import com.coffrefort.client.model.VersionEntry;
-import com.coffrefort.client.model.FileEntry;
+import com.coffrefort.client.model.*;
+
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class JsonUtils {
+
+    private static ObjectMapper mapper = new ObjectMapper()
+        .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
 
     /**
@@ -18,7 +25,7 @@ public class JsonUtils {
      * @return
      */
     public static String extractJsonField(String json, String fieldName) {
-        if (json == null) return null;
+        if (json == null || fieldName ==  null) return null;
 
         String pattern = "\"" + fieldName + "\"";
         int idx = json.indexOf(pattern);
@@ -138,9 +145,25 @@ public class JsonUtils {
                 .replace("\\\\", "\\");
     }
 
+    /**
+     * Extrait un champ JSON (chaîne OU nombre)
+     * @param json
+     * @param fieldName
+     * @return
+     */
+    public static String extractJsonFieldAny(String json, String fieldName){
+        //essayer d'abord en tant que chaine
+        String value = extractJsonField(json, fieldName);
+
+        if(value == null){
+            value = extractJsonNumberField(json, fieldName);
+        }
+        return value;
+    }
+
 
     /**
-     * Parse la réponse JSON des partages (champ "shares" ou tableau direct) en une liste de ShareItem
+     * Parse la réponse JSON des partages (champ "shares" ou tableau direct) en une liste de ShareItem => sans pagination
      * @param json
      * @return
      */
@@ -257,6 +280,14 @@ public class JsonUtils {
 
         System.out.println("JsonUtils - Total d'items parsés: " + result.size());
         return result;
+    }
+
+    public static PagedShareResponse parsePagedSharesResponse(String json) {
+        try{
+            return mapper.readValue(json, PagedShareResponse.class);
+        }catch(Exception e){
+            throw new RuntimeException("JSON parse error: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -397,6 +428,98 @@ public class JsonUtils {
         return FileEntry.of(id, name, size, createdAt, updatedAt);
     }
 
+    /**
+     * Parse une liste d'utilisateurs avec quotas
+     * @param json
+     * @return
+     * @throws Exception
+     */
+//    public static List<UserQuota> parseUserQuotaList(String json) throws Exception {
+//
+//        List<UserQuota> list = new ArrayList<>();
+//
+//        String usersJson = extractJsonArrayField(json, "users");
+//        if(usersJson == null || usersJson.isEmpty()) {
+//            return list;
+//        }
+//
+//        //Parser chaque user
+//        String [] userBlocks = usersJson.split("\\},\\s*\\{");
+//
+//        for(String block : userBlocks) {
+//            block = block.replaceAll("^\\[?\\{?", "").replaceAll("\\}?\\]?$", "");;
+//
+//            int id = Integer.parseInt(extractJsonField("{" + block + "}", "id"));
+//            //String username = extractJsonField("{" + block + "}", "username");
+//            String email = extractJsonField("{" + block + "}", "email");
+//            long used = Long.parseLong(extractJsonField("{" + block + "}", "used"));
+//            long max = Long.parseLong(extractJsonField("{" + block + "}", "max"));
+//
+//            Boolean isAdmin = false;
+//            String isAdminStr = extractJsonField("{" + block + "}", "is_admin");
+//            if (isAdminStr != null && isAdminStr.equals("true")) {
+//                isAdmin = true;
+//            }
+//
+//            String role = isAdmin ? "admin" : "user";
+//
+//            list.add(new UserQuota(id, email, used, max, role));
+//        }
+//        return list;
+//    }
+
+    public static List<UserQuota> parseUserQuotaList(String json) throws Exception {
+        List<UserQuota> list = new ArrayList<>();
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(json);
+
+        JsonNode usersNode = root.get("users");
+        if (usersNode == null || !usersNode.isArray()) {
+            return list;
+        }
+
+        for (JsonNode u : usersNode) {
+            int id = u.path("id").asInt();
+            String email = u.path("email").asText(null);
+
+            long used = u.path("used").asLong();
+            long max = u.path("max").asLong();
+
+            boolean isAdmin = false;
+            JsonNode isAdminNode = u.get("is_admin");
+            if (isAdminNode != null) {
+                if (isAdminNode.isBoolean()) {
+                    isAdmin = isAdminNode.asBoolean();
+                } else {
+                    // si l’API renvoie 0/1 ou "0"/"1"
+                    String s = isAdminNode.asText("");
+                    isAdmin = s.equals("1") || s.equalsIgnoreCase("true");
+                }
+            }
+
+            String role = isAdmin ? "admin" : "user";
+            list.add(new UserQuota(id, email, used, max, role));
+        }
+
+        return list;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /**
      * Empêche l’instanciation de la classe utilitaire JsonUtils.
@@ -404,4 +527,16 @@ public class JsonUtils {
     private JsonUtils() {
         // constructeur privé pour empêcher l'instanciation
     }
+
+
+
+
+
+
+
+
+
+
+
+
 }

@@ -113,7 +113,7 @@ public class UploadDialogController {
         // une autre possibilité pour choisir des fichiers
         // fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Tous les fichiers", "*.*"));
 
-        //filtrer les types de fichiers autorisés
+        //filtrer les types de fichiers autorisés ???? à érifier
         fileChooser.getExtensionFilters().addAll(
                 new FileChooser.ExtensionFilter("Images", "*.jpg", "*.jpeg", "*.png", "*.webp"),
                 new FileChooser.ExtensionFilter("Documents PDF", "*.pdf"),
@@ -153,8 +153,6 @@ public class UploadDialogController {
             hideMessage();
         }
     }
-
-
 
     /**
      * Vérifie les prérequis (ApiClient, fichiers, dossier, quota) puis upload les fichiers en tâche de fond avec progression =>ok
@@ -220,9 +218,23 @@ public class UploadDialogController {
                 );
                 return;
             }
+        } catch (ApiClient.AuthenticationException e) {
+            // Gestion spécifique des erreurs d'authentification
+            showErrorMessage(
+                    "Session expirée.\n\n" +
+                            e.getMessage() + "\n\n" +
+                            "Veuillez vous reconnecter."
+            );
+            e.printStackTrace();
+            return;
 
         } catch (Exception e) {
-            showErrorMessage("Impossible de vérifier le quota.");
+            String errorMessage = "Impossible de vérifier le quota.";
+
+            if (e.getMessage() != null && !e.getMessage().isEmpty()) {
+                errorMessage = e.getMessage();
+            }
+            showErrorMessage(errorMessage);
             e.printStackTrace();
             return;
         }
@@ -320,12 +332,19 @@ public class UploadDialogController {
             cancelButton.setDisable(false);
 
             progressLabel.setText("Erreur lors de l'upload");
-            showErrorMessage("Une erreur est survenue pendant l’upload.");
 
             Throwable ex = uploadTask.getException();
+            String errorMessage = "Une erreur est survenue pendant l'upload.";
             if (ex != null) {
                 ex.printStackTrace();
+
+                // Afficher le message d'erreur réel
+                if (ex.getMessage() != null && !ex.getMessage().isEmpty()) {
+                    errorMessage = ex.getMessage();
+                }
             }
+
+            showErrorMessage(errorMessage);
         });
 
         new Thread(uploadTask, "upload-task").start();
