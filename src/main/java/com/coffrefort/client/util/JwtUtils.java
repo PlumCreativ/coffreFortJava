@@ -60,6 +60,28 @@ public class JwtUtils {
         return JsonUtils.extractJsonNumberField(json, "user_id");
     }
 
+    /**
+     * Extrait le champ is_admin du payload du JWT décodé (format: 0, 1, false, true)
+     * @param jwt
+     * @return
+     */
+    public static Boolean extractIsAdmin(String jwt){
+        String json = decodePayload(jwt);
+        if(json == null) return false;
+
+        System.out.println("JWT Payload décodé: " + json); // Debug
+        String isAdminStr = JsonUtils.extractJsonFieldAny(json, "is_admin");
+
+        System.out.println("DEBUG - is_admin extrait du JWT: '" + isAdminStr + "'");
+
+        if(isAdminStr != null){
+            isAdminStr = isAdminStr.trim();
+            return "true".equalsIgnoreCase(isAdminStr) || "1".equals(isAdminStr);
+        }
+
+        return false;
+    }
+
 
     /**
      * Empêche l’instanciation de la classe utilitaire JwtUtils

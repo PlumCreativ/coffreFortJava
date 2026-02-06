@@ -8,7 +8,9 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 
 import com.coffrefort.client.ApiClient;
+import com.coffrefort.client.model.PagedShareResponse;
 import com.coffrefort.client.model.ShareItem;
+import javafx.scene.control.Pagination;
 import com.coffrefort.client.util.UIDialogs;
 
 import javafx.stage.Stage;
@@ -16,6 +18,7 @@ import javafx.stage.Stage;
 public class MySharesController {
 
     @FXML private TableView<ShareItem> sharesTable;
+    @FXML private Pagination pagination;
     @FXML private TableColumn<ShareItem, String> resourceCol;
     @FXML private TableColumn<ShareItem, String> labelCol;
     @FXML private TableColumn<ShareItem, String> expiresCol;
@@ -25,6 +28,8 @@ public class MySharesController {
 
     private ApiClient apiClient;
     private Stage stage;
+    private final int pageSize = 10; //=> à modifier si je veux changer la limit
+    private boolean paginationInitialized = false;
 
     @FXML
     private void initialize() {
@@ -144,35 +149,72 @@ public class MySharesController {
         System.out.println("MySharesController - setApiClient() appelée");
         this.apiClient = apiClient;
         initActionColumn();
-        loadShares();
+        //loadShares();
+        loadSharesPage(0);
     }
 
     /**
-     * Charge les partages depuis l'API
+     * Charge les partages depuis l'API sans pagination => ne pas supprmier
      */
-    private void loadShares() {
-        System.out.println("MySharesController - loadShares() démarrage...");
+//    private void loadShares() {
+//        System.out.println("MySharesController - loadShares() démarrage...");
+//
+//        try {
+//            var shares = apiClient.listShares();
+//
+//            System.out.println("MySharesController - Nombre de partages reçus: " + shares.size());
+//
+//            // Debug: afficher chaque partage
+//            for (int i = 0; i < shares.size(); i++) {
+//                ShareItem share = shares.get(i);
+//                System.out.println("Partage " + i + ": " +
+//                        "id=" + share.getId() +
+//                        ", resource=" + share.getResource() +
+//                        ", label=" + share.getLabel() +
+//                        ", status=" + share.getStatus() +
+//                        ", expires=" + share.getExpiresAt() +
+//                        ", remaining=" + share.getRemainingUses() +
+//                        ", revoked=" + share.isRevoked());
+//            }
+//
+//            sharesTable.getItems().setAll(shares);
+//            System.out.println("MySharesController - Données ajoutées à la table");
+//
+//        } catch (Exception e) {
+//            System.err.println("MySharesController - ERREUR lors du chargement: " + e.getMessage());
+//
+//            e.printStackTrace();
+//            UIDialogs.showError("Erreur", null, "Impossible de charger les partages: " + e.getMessage());
+//        }
+//    }
 
-        try {
-            var shares = apiClient.listShares();
+    private void loadSharesPage(int pageIndex){
+        System.out.println("MySharesController - loadSharesPage(" + pageIndex + ")...");
 
-            System.out.println("MySharesController - Nombre de partages reçus: " + shares.size());
+        int offset = pageIndex * pageSize;
 
-            // Debug: afficher chaque partage
-            for (int i = 0; i < shares.size(); i++) {
-                ShareItem share = shares.get(i);
-                System.out.println("Partage " + i + ": " +
-                        "id=" + share.getId() +
-                        ", resource=" + share.getResource() +
-                        ", label=" + share.getLabel() +
-                        ", status=" + share.getStatus() +
-                        ", expires=" + share.getExpiresAt() +
-                        ", remaining=" + share.getRemainingUses() +
-                        ", revoked=" + share.isRevoked());
+        try{
+            var res = apiClient.listShares(pageSize, offset);
+
+            var shares = res.getShares();
+            sharesTable.getItems().setAll(shares);
+//          System.out.println("MySharesController - Données ajoutées à la table");
+
+            int total = res.getTotal();
+            int pageCount = (int) Math.ceil(total/(double)pageSize);
+            pageCount = Math.max(pageCount, 1);
+
+            pagination.setPageCount(pageCount);
+
+            if(!paginationInitialized){
+                paginationInitialized = true;
+                pagination.currentPageIndexProperty().addListener((observable, oldValue, newValue) -> {
+                    loadSharesPage((newValue.intValue()));
+                });
             }
 
-            sharesTable.getItems().setAll(shares);
-            System.out.println("MySharesController - Données ajoutées à la table");
+            System.out.println("MySharesController - OK: reçus=" + (shares != null ? shares.size() : 0)
+                    + ", total=" + total + ", pageCount=" + pageCount);
 
         } catch (Exception e) {
             System.err.println("MySharesController - ERREUR lors du chargement: " + e.getMessage());
@@ -181,6 +223,10 @@ public class MySharesController {
             UIDialogs.showError("Erreur", null, "Impossible de charger les partages: " + e.getMessage());
         }
     }
+
+
+
+
 
     /**
      * initialise la colonne Actions avec les boutons

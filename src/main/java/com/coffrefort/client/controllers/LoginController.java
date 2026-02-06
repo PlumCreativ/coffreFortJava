@@ -165,6 +165,10 @@ public class LoginController {
             if (token  != null) {
                 statusLabel.setText("Connexion réussie.");
 
+                boolean isAdmin = apiClient.isAdmin();
+                System.out.println("DEBUG - Utilisateur connecté: " + email);
+                System.out.println("DEBUG - Est admin: " + isAdmin);
+
                 //il faut appeler callback onSuccess au lieu de charger manuellement main.fxml
                 if (onSuccess != null){
                     onSuccess.run();   //Execute: App.openMainAndClose(stage)

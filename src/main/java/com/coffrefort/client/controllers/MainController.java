@@ -56,6 +56,7 @@ public class MainController {
     @FXML private Button deleteButton;
     @FXML private Button newFolderButton;
     @FXML private Button logoutButton;
+    @FXML private Button gestionQuota;
 
     private ApiClient apiClient;
     private Runnable onLogout;
@@ -162,6 +163,9 @@ public class MainController {
             refreshQuotaBarStyle();
         });
 
+        //masquer le bouton quota si pas admin
+        gestionQuota.setVisible(false);
+        gestionQuota.setManaged(false);
     }
 
 
@@ -257,24 +261,24 @@ public class MainController {
 
                 @Override
                 protected void updateItem(NodeItem item, boolean empty) {
-                    super.updateItem(item, empty);
+                super.updateItem(item, empty);
 
-                    if (empty || item == null) {
-                        setText(null);
-                        setGraphic(null);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                    setContextMenu(null);
+                } else {
+                    setText("📁 " + item.getName());
+
+                    // ne pas proposer suppression sur la racine virtuelle => id=0
+                    if (item.getId() == 0) {
                         setContextMenu(null);
                     } else {
-                        setText("📁 " + item.getName());
-
-                        // ne pas proposer suppression sur la racine virtuelle => id=0
-                        if (item.getId() == 0) {
-                            setContextMenu(null);
-                        } else {
-                            // afficher le menu au clique droite => setContextMenu()
-                            // rendre le clique droit active
-                            setContextMenu(createFolderContextMenu(this));
-                        }
+                        // afficher le menu au clique droite => setContextMenu()
+                        // rendre le clique droit active
+                        setContextMenu(createFolderContextMenu(this));
                     }
+                }
                 }
             };
             return cell;
@@ -479,7 +483,18 @@ public class MainController {
         }).start();
     }
 
+    // à écrire!!!!
+    private void updateFileCount() {
+
+        int count = (fileList == null) ? 0 : fileList.size();
+
+        if (fileCountLabel != null) {
+            fileCountLabel.setText(count + " fichier" + (count > 1 ? "s" : ""));
+        }
+    }
+
 // *****************************************   functions pour le quota   ****************************************
+
     private void initQuotaBarStyleOnce() {
         if (quotaStyleInitialized) return;
         quotaStyleInitialized = true;
@@ -598,73 +613,57 @@ public class MainController {
         }).start();
     }
 
-    // à écrire!!!!
-    private void updateFileCount() {
+    /**
+     * Afficher le bouton de gestion quota si user est admin
+     */
+    public void checkAdminRole(){
+        try{
+            //vérif si le rôle depuis le token ou API
+            boolean isAdmin = apiClient.isAdmin();
 
-        int count = (fileList == null) ? 0 : fileList.size();
+            gestionQuota.setVisible(isAdmin);
+            gestionQuota.setManaged(isAdmin);
 
-        if (fileCountLabel != null) {
-            fileCountLabel.setText(count + " fichier" + (count > 1 ? "s" : ""));
+        }catch (Exception e){
+
+            gestionQuota.setVisible(false);
+            gestionQuota.setManaged(false);
         }
     }
 
-
-    /**
-     * Gestion d'upload des fichiers =>ok
-     */
     @FXML
-    private void handleUpload() {
-
-        if(currentQuota != null && currentQuota.getUsed() >= currentQuota.getMax()){
-            UIDialogs.showError("Quota atteint",
-                    null,
-                    "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
-            return;
-        }
-
+    private  void handleQuota(){
         try{
             FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/uploadDialog.fxml")
+                    getClass().getResource("/com/coffrefort/client/quotaManagement.fxml")
             );
 
-            Parent root = loader.load();
+            Scene scene = new Scene(loader.load());
 
             //récupération du contrôleur
-            UploadDialogController controller = loader.getController();
-            controller.setApiClient(apiClient);
-
-            if(currentFolder != null){
-                controller.setTargetFolderId(currentFolder.getId());
-            }
+            QuotaManagementController controller = loader.getController();
 
             Stage dialogStage = new Stage();
-            dialogStage.setTitle("Uploader des fichiers");
+            dialogStage.setTitle(("Gestion des quotas"));
             dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(uploadButton.getScene().getWindow());
-            dialogStage.setScene(new Scene(root));
+            dialogStage.initOwner(gestionQuota.getScene().getWindow());
+            dialogStage.setScene(scene);
             controller.setDialogStage(dialogStage);
-
-            //callback pour rafraîchir après upload
-            controller.setOnUploadSuccess(() ->{
-                Platform.runLater(() -> {
-                    if(currentFolder != null){
-                        loadFiles(currentFolder);
-                    }
-
-                    updateQuota();
-                    statusLabel.setText("Upload terminé");
-                });
-            });
+            controller.setApiClient(apiClient);
+            controller.refreshNow();
 
             dialogStage.showAndWait();
-
-        }catch(Exception e){
+        }catch (Exception e){
             e.printStackTrace();
-            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre d'upload "+e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de gestion des quotas "+e.getMessage());
         }
     }
 
 
+
+
+
+    // *****************************************   functions pour share  *************************
     /**
      * Gestion de share des fichiers
      */
@@ -746,235 +745,6 @@ public class MainController {
         UIDialogs.showInfoUrl("Partage réusssi", "Lien de partage généré", url);
     }
 
-
-    /**
-     * gestion de suppression d'un fichier => ok
-     */
-    @FXML
-    private void handleDelete() {
-        FileEntry selected = table.getSelectionModel().getSelectedItem();
-        if (selected == null) return;
-
-        deleteButton.setDisable(true);
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/confirmDelete.fxml")
-            );
-
-            VBox root = loader.load();
-
-            // Récupération du contrôleur
-            ConfirmDeleteController controller = loader.getController();
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Confirmer la suppresion du fichier");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(deleteButton.getScene().getWindow());
-            dialogStage.setScene(new Scene(root));
-
-            // Injection du stage et du nom de fichier
-            controller.setDialogStage(dialogStage);
-
-            // personnaliser pour fichier
-            controller.setMessage("Voulez-vous vraiment supprimer ce fichier ?");
-            controller.setFileName(selected.getName());
-
-            //callbacks
-            controller.setOnConfirm(() -> deleteFile(selected));
-            controller.setOnCancel(() -> statusLabel.setText("Suppression annulé"));
-            dialogStage.showAndWait();
-
-        } catch (Exception e){
-            System.err.println("Erreur lors du chargement de confirmDelete.fxml");
-            e.printStackTrace();
-            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
-        } finally {
-            deleteButton.setDisable(false);
-        }
-    }
-
-    /**
-     * supprimer un file =>ok
-     * @param file
-     */
-    private void deleteFile(FileEntry file) {
-        if (file == null) {
-            return;
-        }
-        statusLabel.setText("Suppression en cours...");
-
-        //désactiver avant la suppression
-        shareButton.setDisable(true);
-        deleteButton.setDisable(true);
-
-        new Thread(() -> {
-            try {
-                apiClient.deleteFile(file.getId());
-
-                Platform.runLater(() -> {
-
-                    fileList.remove(file);  // => ça n'enleve  que localement
-
-                    if(currentFolder != null){ //=> recharger complètement le dossier
-                        loadFiles(currentFolder);
-                    }
-
-                    //mise à jour le compteur et le quota
-                    updateFileCount();
-                    updateQuota();
-
-                    //garder les boutons désactivés => pas de sélection
-                    shareButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
-                    deleteButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
-
-                    statusLabel.setText("Fichier supprimé: " + file.getName());
-
-                    UIDialogs.showInfo("Suppression réussie",
-                            null,
-                            "Le fichier \"" + file.getName() + "\" a été supprimé."
-                    );
-                });
-            } catch (Exception e) {
-                e.printStackTrace();
-                Platform.runLater(() -> {
-                    //réactiver les boutons
-                    shareButton.setDisable(false);
-                    deleteButton.setDisable(false);
-
-                    shareButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
-                    deleteButton.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
-
-                    UIDialogs.showError("Erreur de suppression", null, "Erreur: " + e.getMessage());
-                    statusLabel.setText("Erreur de suppression");
-                });
-            }
-        }).start();
-    }
-
-    /**
-     * gestion de téléchargement d'un fichier =>ok
-     * @param file
-     */
-    private void handleDownload(FileEntry file) {
-
-        if(file == null) return;
-
-        FileChooser chooser = new FileChooser();
-
-        //à choisir où enregistrer
-        chooser.setTitle("Enregistrer le fichier...");
-
-        // définir le nom => par défaut
-        chooser.setInitialFileName(file.getName());
-
-        //configuration automatique les filtres
-        FileUtils.configureFileChooserFilter(chooser, file.getName());
-
-        File target = chooser.showSaveDialog(table.getScene().getWindow());
-        if (target == null){
-            statusLabel.setText("Le téléchargement est annulé");
-            return;
-        }
-
-        statusLabel.setText("Téléchargement de " + file.getName() + "...");
-
-        new Thread(() -> {
-            try {
-                apiClient.downloadFileTo(file.getId(), target);
-
-                Platform.runLater(() -> {
-                    statusLabel.setText("Téléchargé " + target.getAbsolutePath());
-                    updateQuota();
-
-                    UIDialogs.showInfo(
-                            "Téléchargement réussi",
-                            null, "Le fichier a été téléchargé: \n"
-                                    + target.getAbsolutePath()
-                    );
-                });
-            }catch (Exception e) {
-                e.printStackTrace();
-                Platform.runLater(() -> {
-                    UIDialogs.showError("Téléchargement échoué", null, "Impossible de télécharger: " + e.getMessage());
-                    statusLabel.setText("Erreur de téléchargement");
-                });
-            }
-        }).start();
-
-    }
-
-    /**
-     * Gestion de cas de "création d'un folder"
-     */
-    @FXML
-    private void handleNewFolder() {
-//        openCreateFolderDialog(currentFolder); // currentFolder peut être null => racine
-        openCreateFolderDialog(null); //=> à la racine!!!
-    }
-
-    /**
-     * Création d'un Folder
-     * @param name
-     */
-    private void createFolder(String name, NodeItem parentFolder) {
-        statusLabel.setText("Création du dossier...");
-
-        new Thread(() -> {
-            try {
-                boolean success = apiClient.createFolder(name, parentFolder); //=> parentFolder peut être null
-
-                Platform.runLater(() -> {
-                    if (success) {
-                        loadData(); // Recharger l'arborescence
-                        statusLabel.setText("Dossier créé: " + name);
-                    } else {
-                        UIDialogs.showError("Erreur", null, "Impossible de créer le dossier.");
-                        statusLabel.setText("Erreur de création");
-                    }
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    UIDialogs.showError("Erreur", null,"Erreur: " + e.getMessage());
-                    statusLabel.setText("Erreur de création");
-                });
-            }
-        }).start();
-    }
-
-    /**
-     * ouvrir le dialog CreatFolder.fxml pour créer un dossier avec à la racine
-     * @param parentFolder
-     */
-    private void openCreateFolderDialog(NodeItem parentFolder){
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/createFolder.fxml")
-            );
-
-            VBox root = loader.load();
-
-            // Récupération du contrôleur
-            CreateFolderController controller = loader.getController();
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Créer un nouveau dossier");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(treeView.getScene().getWindow());
-            dialogStage.setScene(new Scene(root));
-
-            controller.setDialogStage(dialogStage);
-
-            controller.setOnCreateFolder(name -> createFolder(name, parentFolder));
-
-            dialogStage.showAndWait();
-
-        }catch (Exception e){
-            System.err.println("Erreur lors du chargement de createFolder.fxml");
-            e.printStackTrace();
-            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de création: " + e.getMessage());
-        }
-    }
-
     /**
      * gestion de "Mes partages"
      */
@@ -1012,329 +782,60 @@ public class MainController {
 
     }
 
-    /**
-     * pour gérer la suppression d'un dossier =>ok
-     * @param folder
-     * @param treeItem => élément visuel dans le TreeView
-     */
-    private void handleDeleteFolder(NodeItem folder, TreeItem<NodeItem> treeItem){
-        if(folder == null) return;
-
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/confirmDeleteFolder.fxml")
-            );
-
-            VBox root = loader.load();
-
-            // Récupération du contrôleur
-            ConfirmDeleteFolderController controller = loader.getController();
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Confirmer la suppresion du dossier");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(treeView.getScene().getWindow());
-            dialogStage.setScene(new Scene(root));
-
-            // Injection du stage et du nom de fichier
-            controller.setDialogStage(dialogStage);
-            controller.setFolderName(folder.getName());
-
-            //callbacks
-            controller.setOnConfirm(() -> deleteFolderOnServer(folder, treeItem));
-            controller.setOnCancel(() -> statusLabel.setText("Suppression du dossier annulé"));
-            dialogStage.showAndWait();
-
-        } catch (Exception e){
-            System.err.println("Erreur lors du chargement de confirmDeleteFolder.fxml");
-            e.printStackTrace();
-            UIDialogs.showError("Erreur", null, "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
-        }
-
-//        Optional<ButtonType> result = confirm.showAndWait();
-//        if(result.isPresent() && result.get() == ButtonType.OK){
-//            deleteFolderOnServer(folder, treeItem);
-//        }else{
-//            statusLabel.setText("Suppression du dossier annulée");
-//        }
-    }
+    // *****************************************   functions pour file *************************
 
     /**
-     * supprimer le dossier sur le serveur (via API) + mise à jour l'affichage =>ok
-     * @param folder
-     * @param treeItem
-     */
-    private void deleteFolderOnServer(NodeItem folder, TreeItem<NodeItem> treeItem){
-        if(folder == null) return;
-        statusLabel.setText("Suppression du dossier en cours ...");
-
-        new Thread(() -> {
-            try{
-                apiClient.deleteFolder(folder.getId());
-
-                Platform.runLater(() -> {
-
-                    //Si on est dans ce dossier => vider la table
-                    if(currentFolder != null && currentFolder.getId() ==  folder.getId()){
-                        fileList.clear();
-                        updateFileCount();
-                        currentFolder = null;
-                    }
-
-                    //recharger arborescence
-                    loadData();
-                    updateQuota();
-
-                    statusLabel.setText("Dossier supprimé: " + folder.getName());
-
-                    UIDialogs.showInfo(
-                            "Suppression réussie",
-                            null,
-                            "Le dossier \"" + folder.getName() + "\" a été supprimé."
-                    );
-                });
-            } catch (Exception e) {
-                e.printStackTrace();
-                Platform.runLater(() -> {
-                    String errorMessage = e.getMessage();
-                    if(errorMessage != null && errorMessage.contains("fichiers")){
-                        UIDialogs.showError("Suppression impossible",
-                                null,
-                                "Le dossier contient des fichiers.\n" +
-                                        "Veuillez d'abord supprimer tous les fichiers."
-                        );
-                    }else if(errorMessage != null && errorMessage.contains("sous-dossiers")){
-                        UIDialogs.showError("Suppression impossible",
-                                null,
-                                "Le dossier contient des sous-dossiers.\n" +
-                                        "Veuillez d'abord supprimer tous les sous-dossiers."
-                        );
-                    }else if(errorMessage != null && errorMessage.contains("introuvable")){
-                        UIDialogs.showError("Suppression impossible",
-                                null,
-                                "Dossier introuvable ou déjà supprimé."
-                        );
-                    }else{
-                        UIDialogs.showError(
-                                "Erreur de suppression",
-                                null,
-                                "Erreur lors de la suppression du dossier.\n" +
-                                        (errorMessage != null ? errorMessage : "Erreur inconnue")
-                        );
-                    }
-                    statusLabel.setText("Erreur de suppression du dossier");
-                });
-            }
-        }).start();
-    }
-
-    /**
-     * Gestion de déconnexion =>ok
+     * Gestion d'upload des fichiers =>ok
      */
     @FXML
-    private void handleLogout() {
-        logoutButton.setDisable(true);
+    private void handleUpload() {
 
-        System.out.println("MainController - handleLogout() appelé");
-        System.out.println("MainController - Instance hashCode = " + this.hashCode());
-        System.out.println("MainController - app is null ? " + (app == null));
-        System.out.println("MainController - apiClient is null ? " + (apiClient == null));
+        if(currentQuota != null && currentQuota.getUsed() >= currentQuota.getMax()){
+            UIDialogs.showError("Quota atteint",
+                    null,
+                    "Votre espace de stockage est plein. Veuillez supprimer des fichiers.");
+            return;
+        }
 
-        try {
+        try{
             FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/confirmLogout.fxml")
+                    getClass().getResource("/com/coffrefort/client/uploadDialog.fxml")
             );
 
-            VBox root = loader.load();
+            Parent root = loader.load();
 
-            // Récupération du contrôleur
-            ConfirmLogoutController controller = loader.getController();
+            //récupération du contrôleur
+            UploadDialogController controller = loader.getController();
+            controller.setApiClient(apiClient);
+
+            if(currentFolder != null){
+                controller.setTargetFolderId(currentFolder.getId());
+            }
 
             Stage dialogStage = new Stage();
-            dialogStage.setTitle("Confirmer la déconnexion");
+            dialogStage.setTitle("Uploader des fichiers");
             dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(logoutButton.getScene().getWindow());
+            dialogStage.initOwner(uploadButton.getScene().getWindow());
             dialogStage.setScene(new Scene(root));
-
-            // Injection du stage et de la logique de déconnexion
             controller.setDialogStage(dialogStage);
-            controller.setOnLogoutConfirmed(() -> {
 
-                // Déconnexion (suppression du token)
-                apiClient.logout();
-                System.out.println("Déconnexion effectuée. Retour à l'écran de connexion...");
-
-                // Fermer la fenêtre de dialogue AVANT de changer de scène
-                dialogStage.close();
-
-                // Utiliser Platform.runLater pour changer de scène de manière sûre
+            //callback pour rafraîchir après upload
+            controller.setOnUploadSuccess(() ->{
                 Platform.runLater(() -> {
-                    try {
-
-//                        FXMLLoader loginLoader = new FXMLLoader(
-//                                getClass().getResource("/com/coffrefort/client/login2.fxml")
-//                        );
-//                        Parent loginRoot = loginLoader.load();
-//                        // Récupérer le contrôleur du login
-//                        LoginController loginController = loginLoader.getController();
-//                        // Injecter l'ApiClient existant
-//                        loginController.setApiClient(apiClient);
-
-                        // Récupérer la fenêtre principale (Stage)
-                        Stage stage = (Stage)logoutButton.getScene().getWindow();
-
-                        //appel la méthode openlogin de App
-                        if(app != null){
-                            System.out.println("MainController - Appel de app.openLogin()");
-                            app.openLogin(stage); //Appel DIRECT, pas de callback
-                            System.out.println("Redirection vers la page de connexion réussie.");
-                        }else{
-                            System.err.println("Erreur: App n'est pas injecté dans MainController");
-                            UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de retourner à l'écran de connexion");
-                        }
-
-                        // Remplacer la scène par celle du login
-//                        Scene loginScene = new Scene(loginRoot, 420, 600);
-//                        stage.setTitle("Connexion - CryptoVault");
-//                        stage.setScene(loginScene);
-//                        stage.centerOnScreen();
-//                        stage.show();
-
-                    } catch (Exception e) {
-                        System.err.println("Erreur lors du chargement de login2.fxml");
-                        e.printStackTrace();
-
-                        // Afficher un message d'erreur à l'utilisateur
-
-                        UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger l'écran de connexion." );
-//                        Alert alert = new Alert(Alert.AlertType.ERROR);
-//                        alert.setTitle("Erreur");
-//                        alert.setHeaderText("Erreur de déconnexion");
-//                        alert.setContentText("Impossible de charger l'écran de connexion.");
-//                        alert.showAndWait();
+                    if(currentFolder != null){
+                        loadFiles(currentFolder);
                     }
+
+                    updateQuota();
+                    statusLabel.setText("Upload terminé");
                 });
             });
 
             dialogStage.showAndWait();
 
-        } catch (IOException e) {
-            System.err.println("Erreur lors du chargement de confirmLogout.fxml");
+        }catch(Exception e){
             e.printStackTrace();
-
-            // Afficher un message d'erreur
-            UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger la fenêtre de confirmation.");
-
-//            Alert alert = new Alert(Alert.AlertType.ERROR);
-//            alert.setTitle("Erreur");
-//            alert.setHeaderText("Erreur de déconnexion");
-//            alert.setContentText("Impossible de charger la fenêtre de confirmation.");
-//            alert.showAndWait();
-
-        } catch (Exception e) {
-            System.err.println("Erreur inattendue lors de la déconnexion");
-            e.printStackTrace();
-
-        } finally {
-            // Réactiver le bouton après fermeture du dialogue
-            logoutButton.setDisable(false);
-        }
-    }
-
-    // à écrire!!!! => il est dans le FileEntry
-    private String formatSize(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        int exp = (int) (Math.log(bytes) / Math.log(1024));
-        char unit = "KMGTPE".charAt(exp - 1);
-        return String.format("%.1f %sB", bytes / Math.pow(1024, exp), unit);
-    }
-
-
-    /**
-     * ouvrir le dialog renameFolder.fxml pour renommer un dossier =>ok
-     * @param folder
-     */
-    private void openRenameFolderDialog(NodeItem folder){
-        if(folder == null) return;
-
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/com/coffrefort/client/renameFolder.fxml")
-            );
-
-            VBox root = loader.load();
-
-            // Récupération du contrôleur
-            RenameFolderController controller = loader.getController();
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Renommer le dossier");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(treeView.getScene().getWindow());
-            dialogStage.setResizable(false);
-            dialogStage.setScene(new Scene(root));
-
-            controller.setStage(dialogStage);
-            currentNameFolder = folder.getName();
-            controller.setCurrentName(currentNameFolder);
-
-            controller.setOnConfirm(newName -> {
-
-                //vérif si les 2 noms sont identiques
-                if(newName.trim().equals(currentNameFolder)){
-                    Platform.runLater(() -> {
-                        UIDialogs.showError("Renommer", null , "Le nouveau nom est identique à l'ancien");
-                        //dialogStage.close();
-                    });
-                    return;
-                }
-
-                statusLabel.setText("Renommage en cours...");
-
-                new Thread(() -> {
-                    try {
-                        apiClient.renameFolder(folder.getId(), newName, currentNameFolder); //=> il faut id et name, currenNameFolder au cas ou
-
-                        Platform.runLater(() -> {
-
-                            loadData(); // => refresh Tree (arborescence
-                            statusLabel.setText("Dossier renommé en \"" + newName + "\"");
-
-                            UIDialogs.showInfo(
-                                    "Renommage réussi",
-                                    null,
-                                    "Le dossier a été renommé en \"" + newName + "\"."
-                            );
-
-                            // il faut laisser içi!!! => sinon showInfo de renommage ne s'affiche pas!!
-                            dialogStage.close(); //=> fermer si succès
-                        });
-
-                    } catch (IllegalArgumentException e) {
-                        //Erreur de validation => nom vide, caractères invalides..
-                        e.printStackTrace();
-                        Platform.runLater(() -> {
-                            UIDialogs.showError("Erreur de validation", null, e.getMessage());
-                            statusLabel.setText("Erreur pendant le renommage");
-                            // pas fermer le dialogue
-                        });
-                    }catch (Exception e){
-                        e.printStackTrace();
-                        Platform.runLater(() -> {
-                            UIDialogs.showError("Erreur de renommage", null, "Erreur: " + e.getMessage());
-                            statusLabel.setText("Erreur pendant le renommage");
-                            // pas fermer le dialogue
-                        });
-                    }
-                }).start();
-            });
-
-            dialogStage.showAndWait();
-
-        }catch (Exception e){
-            System.err.println("Erreur lors du chargement de renameFolder.fxml");
-            e.printStackTrace();
-            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir renameFolder.fxml" + e.getMessage());
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre d'upload "+e.getMessage());
         }
     }
 
@@ -1464,13 +965,13 @@ public class MainController {
 
             controller.setCurrentName(file.getName());
 
-           controller.setOnVersionUploaded(() -> Platform.runLater(() -> {
-                       if(currentFolder != null) {
-                           loadFiles(currentFolder);
-                       }
-                       updateQuota();
-                       statusLabel.setText("Version remplacée: " + file.getName());
-           }));
+            controller.setOnVersionUploaded(() -> Platform.runLater(() -> {
+                if(currentFolder != null) {
+                    loadFiles(currentFolder);
+                }
+                updateQuota();
+                statusLabel.setText("Version remplacée: " + file.getName());
+            }));
 
             dialogStage.showAndWait();
 
@@ -1480,4 +981,564 @@ public class MainController {
             UIDialogs.showError("Detail fichier", null,"Impossible d'ouvrir la fenetre: " + e.getMessage());
         }
     }
+    /**
+     * gestion de suppression d'un fichier => ok
+     */
+    @FXML
+    private void handleDelete() {
+        FileEntry selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) return;
+
+        deleteButton.setDisable(true);
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/confirmDelete.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            ConfirmDeleteController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Confirmer la suppresion du fichier");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(deleteButton.getScene().getWindow());
+            dialogStage.setScene(new Scene(root));
+
+            // Injection du stage et du nom de fichier
+            controller.setDialogStage(dialogStage);
+
+            // personnaliser pour fichier
+            controller.setMessage("Voulez-vous vraiment supprimer ce fichier ?");
+            controller.setFileName(selected.getName());
+
+            //callbacks
+            controller.setOnConfirm(() -> deleteFile(selected));
+            controller.setOnCancel(() -> statusLabel.setText("Suppression annulé"));
+            dialogStage.showAndWait();
+
+        } catch (Exception e){
+            System.err.println("Erreur lors du chargement de confirmDelete.fxml");
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
+        } finally {
+            deleteButton.setDisable(false);
+        }
+    }
+
+    /**
+     * supprimer un file =>ok
+     * @param file
+     */
+    private void deleteFile(FileEntry file) {
+        if (file == null) {
+            return;
+        }
+        statusLabel.setText("Suppression en cours...");
+
+        //désactiver avant la suppression
+        shareButton.setDisable(true);
+        deleteButton.setDisable(true);
+
+        new Thread(() -> {
+            try {
+                apiClient.deleteFile(file.getId());
+
+                Platform.runLater(() -> {
+
+                    fileList.remove(file);  // => ça n'enleve  que localement
+
+                    if(currentFolder != null){ //=> recharger complètement le dossier
+                        loadFiles(currentFolder);
+                    }
+
+                    //mise à jour le compteur et le quota
+                    updateFileCount();
+                    updateQuota();
+
+                    //garder les boutons désactivés => pas de sélection
+                    shareButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+                    deleteButton.setStyle("-fx-background-color: #666666; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+
+                    statusLabel.setText("Fichier supprimé: " + file.getName());
+
+                    UIDialogs.showInfo("Suppression réussie",
+                            null,
+                            "Le fichier \"" + file.getName() + "\" a été supprimé."
+                    );
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    //réactiver les boutons
+                    shareButton.setDisable(false);
+                    deleteButton.setDisable(false);
+
+                    shareButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+                    deleteButton.setStyle("-fx-background-color: #d9534f; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 6 14;");
+
+                    UIDialogs.showError("Erreur de suppression", null, "Erreur: " + e.getMessage());
+                    statusLabel.setText("Erreur de suppression");
+                });
+            }
+        }).start();
+    }
+
+    // *****************************************   functions pour download  *************************
+    /**
+     * gestion de téléchargement d'un fichier =>ok
+     * @param file
+     */
+    private void handleDownload(FileEntry file) {
+
+        if(file == null) return;
+
+        FileChooser chooser = new FileChooser();
+
+        //à choisir où enregistrer
+        chooser.setTitle("Enregistrer le fichier...");
+
+        // définir le nom => par défaut
+        chooser.setInitialFileName(file.getName());
+
+        //configuration automatique les filtres
+        FileUtils.configureFileChooserFilter(chooser, file.getName());
+
+        File target = chooser.showSaveDialog(table.getScene().getWindow());
+        if (target == null){
+            statusLabel.setText("Le téléchargement est annulé");
+            return;
+        }
+
+        statusLabel.setText("Téléchargement de " + file.getName() + "...");
+
+        new Thread(() -> {
+            try {
+                apiClient.downloadFileTo(file.getId(), target);
+
+                Platform.runLater(() -> {
+                    statusLabel.setText("Téléchargé " + target.getAbsolutePath());
+                    updateQuota();
+
+                    UIDialogs.showInfo(
+                            "Téléchargement réussi",
+                            null, "Le fichier a été téléchargé: \n"
+                                    + target.getAbsolutePath()
+                    );
+                });
+            }catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    UIDialogs.showError("Téléchargement échoué", null, "Impossible de télécharger: " + e.getMessage());
+                    statusLabel.setText("Erreur de téléchargement");
+                });
+            }
+        }).start();
+    }
+
+    // *****************************************   functions pour folders  *************************
+
+    /**
+     * Gestion de cas de "création d'un folder"
+     */
+    @FXML
+    private void handleNewFolder() {
+//        openCreateFolderDialog(currentFolder); // currentFolder peut être null => racine
+        openCreateFolderDialog(null); //=> à la racine!!!
+    }
+
+    /**
+     * Création d'un Folder
+     * @param name
+     */
+    private void createFolder(String name, NodeItem parentFolder) {
+        statusLabel.setText("Création du dossier...");
+
+        new Thread(() -> {
+            try {
+                boolean success = apiClient.createFolder(name, parentFolder); //=> parentFolder peut être null
+
+                Platform.runLater(() -> {
+                    if (success) {
+                        loadData(); // Recharger l'arborescence
+                        statusLabel.setText("Dossier créé: " + name);
+                    } else {
+                        UIDialogs.showError("Erreur", null, "Impossible de créer le dossier.");
+                        statusLabel.setText("Erreur de création");
+                    }
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    UIDialogs.showError("Erreur", null,"Erreur: " + e.getMessage());
+                    statusLabel.setText("Erreur de création");
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * ouvrir le dialog CreatFolder.fxml pour créer un dossier avec à la racine
+     * @param parentFolder
+     */
+    private void openCreateFolderDialog(NodeItem parentFolder){
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/createFolder.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            CreateFolderController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Créer un nouveau dossier");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(treeView.getScene().getWindow());
+            dialogStage.setScene(new Scene(root));
+
+            controller.setDialogStage(dialogStage);
+
+            controller.setOnCreateFolder(name -> createFolder(name, parentFolder));
+
+            dialogStage.showAndWait();
+
+        }catch (Exception e){
+            System.err.println("Erreur lors du chargement de createFolder.fxml");
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de création: " + e.getMessage());
+        }
+    }
+
+    /**
+     * ouvrir le dialog renameFolder.fxml pour renommer un dossier =>ok
+     * @param folder
+     */
+    private void openRenameFolderDialog(NodeItem folder){
+        if(folder == null) return;
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/renameFolder.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            RenameFolderController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Renommer le dossier");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(treeView.getScene().getWindow());
+            dialogStage.setResizable(false);
+            dialogStage.setScene(new Scene(root));
+
+            controller.setStage(dialogStage);
+            currentNameFolder = folder.getName();
+            controller.setCurrentName(currentNameFolder);
+
+            controller.setOnConfirm(newName -> {
+
+                //vérif si les 2 noms sont identiques
+                if(newName.trim().equals(currentNameFolder)){
+                    Platform.runLater(() -> {
+                        UIDialogs.showError("Renommer", null , "Le nouveau nom est identique à l'ancien");
+                        //dialogStage.close();
+                    });
+                    return;
+                }
+
+                statusLabel.setText("Renommage en cours...");
+
+                new Thread(() -> {
+                    try {
+                        apiClient.renameFolder(folder.getId(), newName, currentNameFolder); //=> il faut id et name, currenNameFolder au cas ou
+
+                        Platform.runLater(() -> {
+
+                            loadData(); // => refresh Tree (arborescence
+                            statusLabel.setText("Dossier renommé en \"" + newName + "\"");
+
+                            UIDialogs.showInfo(
+                                    "Renommage réussi",
+                                    null,
+                                    "Le dossier a été renommé en \"" + newName + "\"."
+                            );
+
+                            // il faut laisser içi!!! => sinon showInfo de renommage ne s'affiche pas!!
+                            dialogStage.close(); //=> fermer si succès
+                        });
+
+                    } catch (IllegalArgumentException e) {
+                        //Erreur de validation => nom vide, caractères invalides..
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            UIDialogs.showError("Erreur de validation", null, e.getMessage());
+                            statusLabel.setText("Erreur pendant le renommage");
+                            // pas fermer le dialogue
+                        });
+                    }catch (Exception e){
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            UIDialogs.showError("Erreur de renommage", null, "Erreur: " + e.getMessage());
+                            statusLabel.setText("Erreur pendant le renommage");
+                            // pas fermer le dialogue
+                        });
+                    }
+                }).start();
+            });
+
+            dialogStage.showAndWait();
+
+        }catch (Exception e){
+            System.err.println("Erreur lors du chargement de renameFolder.fxml");
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir renameFolder.fxml" + e.getMessage());
+        }
+    }
+
+
+
+    /**
+     * pour gérer la suppression d'un dossier =>ok
+     * @param folder
+     * @param treeItem => élément visuel dans le TreeView
+     */
+    private void handleDeleteFolder(NodeItem folder, TreeItem<NodeItem> treeItem){
+        if(folder == null) return;
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/confirmDeleteFolder.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            ConfirmDeleteFolderController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Confirmer la suppresion du dossier");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(treeView.getScene().getWindow());
+            dialogStage.setScene(new Scene(root));
+
+            // Injection du stage et du nom de fichier
+            controller.setDialogStage(dialogStage);
+            controller.setFolderName(folder.getName());
+
+            //callbacks
+            controller.setOnConfirm(() -> deleteFolderOnServer(folder, treeItem));
+            controller.setOnCancel(() -> statusLabel.setText("Suppression du dossier annulé"));
+            dialogStage.showAndWait();
+
+        } catch (Exception e){
+            System.err.println("Erreur lors du chargement de confirmDeleteFolder.fxml");
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null, "Impossible d'ouvrir la fenêtre de suppression: "+e.getMessage());
+        }
+
+//        Optional<ButtonType> result = confirm.showAndWait();
+//        if(result.isPresent() && result.get() == ButtonType.OK){
+//            deleteFolderOnServer(folder, treeItem);
+//        }else{
+//            statusLabel.setText("Suppression du dossier annulée");
+//        }
+    }
+
+    /**
+     * supprimer le dossier sur le serveur (via API) + mise à jour l'affichage =>ok
+     * @param folder
+     * @param treeItem
+     */
+    private void deleteFolderOnServer(NodeItem folder, TreeItem<NodeItem> treeItem){
+        if(folder == null) return;
+        statusLabel.setText("Suppression du dossier en cours ...");
+
+        new Thread(() -> {
+            try{
+                apiClient.deleteFolder(folder.getId());
+
+                Platform.runLater(() -> {
+
+                    //Si on est dans ce dossier => vider la table
+                    if(currentFolder != null && currentFolder.getId() ==  folder.getId()){
+                        fileList.clear();
+                        updateFileCount();
+                        currentFolder = null;
+                    }
+
+                    //recharger arborescence
+                    loadData();
+                    updateQuota();
+
+                    statusLabel.setText("Dossier supprimé: " + folder.getName());
+
+                    UIDialogs.showInfo(
+                            "Suppression réussie",
+                            null,
+                            "Le dossier \"" + folder.getName() + "\" a été supprimé."
+                    );
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    String errorMessage = e.getMessage();
+                    if(errorMessage != null && errorMessage.contains("fichiers")){
+                        UIDialogs.showError("Suppression impossible",
+                                null,
+                                "Le dossier contient des fichiers.\n" +
+                                        "Veuillez d'abord supprimer tous les fichiers."
+                        );
+                    }else if(errorMessage != null && errorMessage.contains("sous-dossiers")){
+                        UIDialogs.showError("Suppression impossible",
+                                null,
+                                "Le dossier contient des sous-dossiers.\n" +
+                                        "Veuillez d'abord supprimer tous les sous-dossiers."
+                        );
+                    }else if(errorMessage != null && errorMessage.contains("introuvable")){
+                        UIDialogs.showError("Suppression impossible",
+                                null,
+                                "Dossier introuvable ou déjà supprimé."
+                        );
+                    }else{
+                        UIDialogs.showError(
+                                "Erreur de suppression",
+                                null,
+                                "Erreur lors de la suppression du dossier.\n" +
+                                        (errorMessage != null ? errorMessage : "Erreur inconnue")
+                        );
+                    }
+                    statusLabel.setText("Erreur de suppression du dossier");
+                });
+            }
+        }).start();
+    }
+
+    /*************************************** Logout *****************************************************
+
+    /**
+     * Gestion de déconnexion =>ok
+     */
+    @FXML
+    private void handleLogout() {
+        logoutButton.setDisable(true);
+
+        System.out.println("MainController - handleLogout() appelé");
+        System.out.println("MainController - Instance hashCode = " + this.hashCode());
+        System.out.println("MainController - app is null ? " + (app == null));
+        System.out.println("MainController - apiClient is null ? " + (apiClient == null));
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/confirmLogout.fxml")
+            );
+
+            VBox root = loader.load();
+
+            // Récupération du contrôleur
+            ConfirmLogoutController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Confirmer la déconnexion");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(logoutButton.getScene().getWindow());
+            dialogStage.setScene(new Scene(root));
+
+            // Injection du stage et de la logique de déconnexion
+            controller.setDialogStage(dialogStage);
+            controller.setOnLogoutConfirmed(() -> {
+
+                // Déconnexion (suppression du token)
+                apiClient.logout();
+                System.out.println("Déconnexion effectuée. Retour à l'écran de connexion...");
+
+                // Fermer la fenêtre de dialogue AVANT de changer de scène
+                dialogStage.close();
+
+                // Utiliser Platform.runLater pour changer de scène de manière sûre
+                Platform.runLater(() -> {
+                    try {
+
+//                        FXMLLoader loginLoader = new FXMLLoader(
+//                                getClass().getResource("/com/coffrefort/client/login2.fxml")
+//                        );
+//                        Parent loginRoot = loginLoader.load();
+//                        // Récupérer le contrôleur du login
+//                        LoginController loginController = loginLoader.getController();
+//                        // Injecter l'ApiClient existant
+//                        loginController.setApiClient(apiClient);
+
+                        // Récupérer la fenêtre principale (Stage)
+                        Stage stage = (Stage)logoutButton.getScene().getWindow();
+
+                        //appel la méthode openlogin de App
+                        if(app != null){
+                            System.out.println("MainController - Appel de app.openLogin()");
+                            app.openLogin(stage); //Appel DIRECT, pas de callback
+                            System.out.println("Redirection vers la page de connexion réussie.");
+                        }else{
+                            System.err.println("Erreur: App n'est pas injecté dans MainController");
+                            UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de retourner à l'écran de connexion");
+                        }
+
+                        // Remplacer la scène par celle du login
+//                        Scene loginScene = new Scene(loginRoot, 420, 600);
+//                        stage.setTitle("Connexion - CryptoVault");
+//                        stage.setScene(loginScene);
+//                        stage.centerOnScreen();
+//                        stage.show();
+
+                    } catch (Exception e) {
+                        System.err.println("Erreur lors du chargement de login2.fxml");
+                        e.printStackTrace();
+
+                        // Afficher un message d'erreur à l'utilisateur
+
+                        UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger l'écran de connexion." );
+//                        Alert alert = new Alert(Alert.AlertType.ERROR);
+//                        alert.setTitle("Erreur");
+//                        alert.setHeaderText("Erreur de déconnexion");
+//                        alert.setContentText("Impossible de charger l'écran de connexion.");
+//                        alert.showAndWait();
+                    }
+                });
+            });
+
+            dialogStage.showAndWait();
+
+        } catch (IOException e) {
+            System.err.println("Erreur lors du chargement de confirmLogout.fxml");
+            e.printStackTrace();
+
+            // Afficher un message d'erreur
+            UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger la fenêtre de confirmation.");
+
+//            Alert alert = new Alert(Alert.AlertType.ERROR);
+//            alert.setTitle("Erreur");
+//            alert.setHeaderText("Erreur de déconnexion");
+//            alert.setContentText("Impossible de charger la fenêtre de confirmation.");
+//            alert.showAndWait();
+
+        } catch (Exception e) {
+            System.err.println("Erreur inattendue lors de la déconnexion");
+            e.printStackTrace();
+
+        } finally {
+            // Réactiver le bouton après fermeture du dialogue
+            logoutButton.setDisable(false);
+        }
+    }
+
+    // à écrire!!!! => il est dans le FileEntry
+    private String formatSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        char unit = "KMGTPE".charAt(exp - 1);
+        return String.format("%.1f %sB", bytes / Math.pow(1024, exp), unit);
+    }
+
+
 }
