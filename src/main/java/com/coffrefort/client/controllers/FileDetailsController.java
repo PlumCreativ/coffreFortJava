@@ -3,6 +3,7 @@ package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.model.FileEntry;
+import com.coffrefort.client.model.PagedVersionsResponse;
 import com.coffrefort.client.model.VersionEntry;
 import com.coffrefort.client.util.UIDialogs;
 import com.coffrefort.client.util.FileUtils;
@@ -15,6 +16,7 @@ import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -46,6 +48,7 @@ public class FileDetailsController {
     @FXML private Label versionsCountLabel;
 
     @FXML private TableView<VersionEntry> versionsTable;
+    @FXML private Pagination pagination;
     @FXML private TableColumn<VersionEntry, Number> versionCol;
     @FXML private TableColumn<VersionEntry, String> sizeCol;
     @FXML private TableColumn<VersionEntry, String> dateCol;
@@ -61,6 +64,10 @@ public class FileDetailsController {
     private FileEntry file;
     private Stage stage;
 
+    private static final int PAGE_SIZE = 4; //=> à modifier si je veux changer la limit
+    private int totalVersions = 0;
+    private int currentPage = 0; //=> pour garder la trace de la page actuelle
+
     private Runnable onVersionUploaded;
 
     private Service<Void> uploadService;
@@ -69,6 +76,48 @@ public class FileDetailsController {
     // ObservableMap pour que les bindings JavaFX se mettent à jour
     // Map key = "fileId:v{versionNumber}" -> downloaded file path
     private final ObservableMap<String, Path> downloadedPaths = FXCollections.observableHashMap();
+
+    @FXML
+    /**
+     * Initialise la table des versions, configure les bindings des boutons et prépare l’UI
+     */
+    private void initialize(){
+        System.out.println("FileDetailsController - initialize() appelée");
+
+        //configuration la PageFactory (pagination) avant charger les données!
+        pagination.setPageFactory(this::loadPage);
+        pagination.setVisible(false);
+        pagination.setManaged(false);
+
+        //Table setup
+        setupVersionTable();
+
+        versionsTable.setItems(versions);
+
+        rebinButtons();
+
+        //pour assurer qu'il n'y a pas binding
+        progressBox.visibleProperty().unbind();
+        progressBox.managedProperty().unbind();
+
+        // le progress UI caché au début
+        setProgressVisible(false);
+
+        //utilisateur change de sélection => effacer les messages d'erreur
+        versionsTable.getSelectionModel().selectedItemProperty().addListener((obs, v, n) -> hideError());
+
+    }
+
+    /**
+     * charge une page de version d'un fichier => appelé par la Pagination quand user clique sur une page
+     * @param pageIndex
+     * @return
+     */
+    private Node loadPage(int pageIndex){
+        currentPage = pageIndex;
+        loadVersions(pageIndex);
+        return new VBox(); //=> retourne un node vide => la table est déjà affichée
+    }
 
 
     /**
@@ -103,6 +152,24 @@ public class FileDetailsController {
         maybeRefresh();
     }
 
+    /**
+     * Met à jour le label affichant le nom du fichier courant
+     * @param name
+     */
+    public void setCurrentName(String name){
+        if(fileNameLabel != null){
+            fileNameLabel.setText(name != null ? name : "");
+        }
+    }
+
+    /**
+     * Définit le callback exécuté après l’upload réussi d’une nouvelle version
+     * @param onVersionUploaded
+     */
+    public void setOnVersionUploaded(Runnable onVersionUploaded) {
+        this.onVersionUploaded = onVersionUploaded;
+    }
+
     //refresh quand apiclient et file sont injectés!!
     private void maybeRefresh() {
         if(this.apiClient != null && this.file != null) {
@@ -110,18 +177,19 @@ public class FileDetailsController {
         }
     }
 
-    private void  hydrateThenRefresh(){
+    private void hydrateThenRefresh(){
         if(apiClient == null || file == null) return;
 
         versionsCountLabel.setText("Chargement...");
 
         new Thread(() -> {
             try {
+                // pour rafraîchir les métadonnées
                 FileEntry fresh = apiClient.getFile(file.getId());
 
                 Platform.runLater(() -> {
-                    this.file = fresh; // => mise à jour les valeurs de header
-                    refresh();
+                    this.file = fresh; // => mise à jour les valeurs de header (en-tête)
+                    refresh(); // => appelle refreshHeader() ET loadVersions()
                     updateTitle();
                 });
             } catch (Exception e) {
@@ -139,8 +207,8 @@ public class FileDetailsController {
      * Rafraîchit l’en-tête du fichier et recharge la liste des versions depuis l’API
      */
     public void refresh(){
-        refreshHeader();
-        loadVersions();
+        refreshHeader();  // affiche nom, taille, date
+        loadVersions(0);   // charge TOUTES les versions?????
     }
 
     /**
@@ -167,28 +235,56 @@ public class FileDetailsController {
     }
 
     /**
-     * Charge les versions du fichier en tâche de fond et met à jour la table et le compteur
+     * Charge les versions du fichier en tâche de fond et met à jour la table et le compteur=>ok
      */
-    private void loadVersions(){
+    private void loadVersions(int page){
         if(apiClient == null || file == null) return;
 
         //feedback UI
-        versionsCountLabel.setText("Chargement...");
+        versionsCountLabel.setText("Chargement des versions...");
 
         new Thread(() -> {
             try{
+                int offset = page * PAGE_SIZE;
+
                 //page => 1 , limit => 10µ
-                List<VersionEntry> list = apiClient.listFileVersions(file.getId(), 1, 100);
+                //Charger la liste complète des versions => rempli la table
+                //List<VersionEntry> list = apiClient.listFileVersions(file.getId(), 1, 100);
+
+                PagedVersionsResponse response = apiClient.listFileVersions(file.getId(), PAGE_SIZE, offset); //limit et offset
 
                 Platform.runLater(() -> {
-                    versions.setAll(list);
-                    versionsCountLabel.setText(versions.size() + " version(s)");
+                    var versionsList = response.getVersions();
+                    //versions.setAll(versionsList);
+                    versionsTable.getItems().setAll(versionsList);
+                    System.out.println("FileDetailsController - " + versionsList.size() + " versions chargés");
+
+                    totalVersions = response.getTotal();
+
+                    //mise à jour la pagination
+                    int totalPages = (int) Math.ceil((double) totalVersions / PAGE_SIZE);
+                    pagination.setPageCount(Math.max(1, totalPages));
+                    pagination.setCurrentPageIndex(page);
+
+                    //afficher/ masquer la pagination
+                    boolean showPagination = totalPages > 1;
+                    pagination.setVisible(showPagination);
+                    pagination.setManaged(showPagination);
+
+                    versionsCountLabel.setText(totalVersions + " version(s)");
+
+                    System.out.println("FileDetailsController - Total: " + totalVersions +
+                            ", Pages: " + totalPages +
+                            ", Page actuelle: " + (page + 1));
                 });
 
             } catch (Exception e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
-                    versions.clear();
+                    versionsTable.getItems().clear();
+                    pagination.setVisible(false);
+                    pagination.setManaged(false);
+//                    versions.clear();
                     versionsCountLabel.setText("Erreur");
                     UIDialogs.showError("Erreur", null,"Impossible de charger les versions " + e.getMessage());
                 });
@@ -197,49 +293,6 @@ public class FileDetailsController {
     }
 
 
-    /**
-     * Met à jour le label affichant le nom du fichier courant
-     * @param name
-     */
-    public void setCurrentName(String name){
-        if(fileNameLabel != null){
-            fileNameLabel.setText(name != null ? name : "");
-        }
-    }
-
-    /**
-     * Définit le callback exécuté après l’upload réussi d’une nouvelle version
-     * @param onVersionUploaded
-     */
-    public void setOnVersionUploaded(Runnable onVersionUploaded) {
-        this.onVersionUploaded = onVersionUploaded;
-    }
-
-
-    @FXML
-    /**
-     * Initialise la table des versions, configure les bindings des boutons et prépare l’UI
-     */
-    private void initialize(){
-
-        //Table setup
-        setupVersionTable();
-
-        versionsTable.setItems(versions);
-
-        rebinButtons();
-
-        //pour assurer qu'il n'y a pas binding
-        progressBox.visibleProperty().unbind();
-        progressBox.managedProperty().unbind();
-
-        // le progress UI caché au début
-        setProgressVisible(false);
-
-        //utilisateur change de sélection => effacer les messages d'erreur
-        versionsTable.getSelectionModel().selectedItemProperty().addListener((obs, v, n) -> hideError());
-
-    }
 
     //activation d'un bouton si (que) un bouton est séléctionné
     private void rebinButtons(){
@@ -409,6 +462,11 @@ public class FileDetailsController {
         openLocalFolderButton.setDisable(true);
         downloadVersionButton.setDisable(true);
 
+        //en cas de supprime le dernière élément de la page, retourner à la page précédente
+        //dernière élément de la page (et pas la page 1)=> aller à la page précédente
+        int itemsOnPage = versionsTable.getItems().size();
+        int nextPage = (itemsOnPage == 1 && currentPage > 0) ? currentPage -1 : currentPage;
+
         new Thread(() -> {
             try {
                 apiClient.deleteVersion(file.getId(), version.getId());
@@ -418,8 +476,9 @@ public class FileDetailsController {
                     //masquer la progression
                     setProgressVisible(false);
 
-                    //supprimer localement
-                    versions.remove(version);
+                    //supprimer localement => ce n'est pas bon => il faut recharger depuis le serveur
+//                    versions.remove(version);
+                    loadVersions(nextPage);
 
                     //mise à jour le compteur
                     versionsCountLabel.setText(versions.size() + " version(s)");

@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.Flow;
 
 
+
 public class ApiClient {
 
     //propriétés
@@ -431,17 +432,26 @@ public class ApiClient {
 
     /**
      * Récupère la liste des fichiers d’un dossier via GET /files?folder=... et les parse en FileEntry
-     * @param folderId
-     * @return
-     * @throws Exception
+     * List<FileEntry> => sans pagination
+     * @param folderId ID du dossier (null pour tous les fichiers)
+     * @param limit Nombre de fichiers par page
+     * @param offset Décalage (0 pour la première page)
+     * @return Réponse paginée
      */
-    public List<FileEntry> listFiles(int folderId) throws Exception {
+    public PagedFilesResponse listFilesPaginated(Integer folderId, int limit, int offset) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
         }
 
+        //construction de url
+        String url =  baseUrl + "/files?limit=" + limit + "&offset=" + offset;
+        if(folderId != null && folderId > 0){
+            url += "&folder=" + folderId;
+        }
+
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/files?folder=" + folderId))
+                //.uri(URI.create(baseUrl + "/files?folder=" + folderId)) => sans pagination
+                .uri(URI.create(url))
                 //.header("Content-Type", "application/json")
                 .header("Accept", "application/json")
                 .header("Authorization", "Bearer " + authToken)
@@ -451,17 +461,18 @@ public class ApiClient {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         int status = response.statusCode();
+        String body = response.body();
+
+        System.out.println("GET " + url  + " => status " + status);
+        System.out.println("Response body: " + body);
 
         if (status != 200) {
-            System.err.println("Erreur listFiles. Status=" + status + " body=" + response.body());
-            throw new IllegalStateException("Erreur HTTP " + status + " lors du chargement des fichiers");
+            String error = JsonUtils.extractJsonField(body, "error");
+            throw new RuntimeException("Erreur HTTP " + status + " : " + (error != null ? error : body));
         }
 
-        String body = response.body();
-        System.out.println("GET /files?folder=" + folderId + " => " + body);
-
         // Construire l'arbre de NodeItem
-        return parseFiles(body);
+        return JsonUtils.parsePagedFilesResponse(body);
     }
 
 
@@ -1172,13 +1183,14 @@ public class ApiClient {
 
     /**
      * Liste les versions d’un fichier via GET /files/{id}/versions et retourne une List<VersionEntry>
+     * List<VersionEntry> => sans pagination
      * @param fileId
-     * @param page
      * @param limit
+     * @param offset
      * @return
      * @throws Exception
      */
-    public List<VersionEntry> listFileVersions(int fileId, int page, int limit) throws Exception {
+    public PagedVersionsResponse listFileVersions(int fileId, int limit, int offset) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
         }
@@ -1187,10 +1199,8 @@ public class ApiClient {
             throw new IllegalArgumentException("FileId invalide " + fileId);
         }
 
-        if(page < 0) page = 1;
-        if(limit < 0) limit = 20;
-
-        String url = baseUrl + "/files/" + fileId + "/versions?page=" + page + "&limit=" + limit;
+        String url = baseUrl + "/files/" + fileId + "/versions?limit=" + limit + "&offset=" + offset;
+        System.out.println("GET " + url);
 
         // Construction de la requête HTTP
         HttpRequest request = HttpRequest.newBuilder()
@@ -1210,7 +1220,7 @@ public class ApiClient {
         System.out.println("GET versions body = " + body );
 
         if (status == 401 || status == 403){
-            throw new AuthenticationException("Non autorise :  token invalide ou expire");
+            throw new AuthenticationException("Non autorise : token invalide ou expire");
         }
 
         if(status != 200){
@@ -1221,7 +1231,8 @@ public class ApiClient {
                 throw new RuntimeException("Erreur listFileVersions (HTTP " + status + "): " + apiError);
             }
         }
-        return JsonUtils.parseVersionEntriesFromVersionsList(body);
+        //return JsonUtils.parseVersionEntriesFromVersionsList(body); => sans pagination
+        return JsonUtils.parsePagedVersionsResponse(body);
     }
 
     /**
@@ -1419,11 +1430,13 @@ public class ApiClient {
 
         // Racine virtuelle (id 0) non affichée parce que TreeView.showRoot = false
         NodeItem root = NodeItem.folder(0, "Racine");
+        // ou NodeItem root = NodeItem.folder(0, "Racine", NodeItem.NodeType.FOLDER);
         java.util.Map<Integer, NodeItem> map = new java.util.HashMap<>();
 
         // Créer tous les noeuds
         for (FolderDto f : folders) {
             NodeItem node = NodeItem.folder(f.id, f.name);
+            // ou NodeItem node = NodeItem.folder(f.id, f.name, NodeItem.NodeType.FOLDER);
             map.put(f.id, node);
         }
 

@@ -1,5 +1,7 @@
 package com.coffrefort.client.controllers;
 
+import com.coffrefort.client.model.UserQuota;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -13,6 +15,7 @@ import com.coffrefort.client.model.ShareItem;
 import javafx.scene.control.Pagination;
 import com.coffrefort.client.util.UIDialogs;
 
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public class MySharesController {
@@ -28,12 +31,20 @@ public class MySharesController {
 
     private ApiClient apiClient;
     private Stage stage;
-    private final int pageSize = 10; //=> à modifier si je veux changer la limit
-    private boolean paginationInitialized = false;
+
+    private static final int PAGE_SIZE = 4; //=> à modifier si je veux changer la limit => remettre à 10 ou 20...!
+    private int totalShares = 0;
+    private int currentPage = 0; //=> pour garder la trace de la page actuelle
+    //private boolean paginationInitialized = false; =>j'utilise quand la pagination fix (il reste visible dans la fenêtre)
 
     @FXML
     private void initialize() {
         System.out.println("MySharesController - initialize() appelée");
+
+        //configuration la PageFactory (pagination) avant charger les données!
+        pagination.setPageFactory(this::loadPage);
+        pagination.setVisible(false);
+        pagination.setManaged(false);
 
         //config des colonnes simples
         resourceCol.setCellValueFactory(data ->
@@ -71,6 +82,7 @@ public class MySharesController {
                 }
             }
         });
+        centerColumn(expiresCol);
 
         //color Restant
         remainingCol.setCellValueFactory(data ->
@@ -105,6 +117,7 @@ public class MySharesController {
                 }
             }
         });
+        centerColumn(remainingCol);
 
 
         //status
@@ -143,14 +156,31 @@ public class MySharesController {
                 }
             }
         });
+        centerColumn(statusCol);
+    }
+
+    private <T> void centerColumn(TableColumn<ShareItem, T> col) {
+        col.setCellFactory(column -> new TableCell<>(){
+            @Override
+            protected void updateItem(T item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (empty || item == null) {
+                    setText(null);
+                }else{
+                    setText(item.toString());
+                }
+                setAlignment(Pos.CENTER);
+            }
+        });
     }
 
     public void setApiClient(ApiClient apiClient) {
         System.out.println("MySharesController - setApiClient() appelée");
         this.apiClient = apiClient;
         initActionColumn();
-        //loadShares();
-        loadSharesPage(0);
+        //loadShares(); //sans pagination
+        loadSharesPage(0); //=> charger la première page
     }
 
     /**
@@ -188,45 +218,65 @@ public class MySharesController {
 //        }
 //    }
 
-    private void loadSharesPage(int pageIndex){
-        System.out.println("MySharesController - loadSharesPage(" + pageIndex + ")...");
+    /**
+     * charger une page de partage
+     * @param page
+     */
+    private void loadSharesPage(int page){
+        if(apiClient == null) return;
+        System.out.println("MySharesController - loadSharesPage(" + page + ")");
 
-        int offset = pageIndex * pageSize;
+        new Thread(() -> {
+            try{
+                int offset = page * PAGE_SIZE;
 
-        try{
-            var res = apiClient.listShares(pageSize, offset);
+                //appel API avec pagination
+                PagedShareResponse response = apiClient.listShares(PAGE_SIZE, offset);
 
-            var shares = res.getShares();
-            sharesTable.getItems().setAll(shares);
-//          System.out.println("MySharesController - Données ajoutées à la table");
+                Platform.runLater(()->{
+                    var shares = response.getShares();
+                    sharesTable.getItems().setAll(shares);
+                    System.out.println("MySharesController - " + shares.size() + " partages chargés");
 
-            int total = res.getTotal();
-            int pageCount = (int) Math.ceil(total/(double)pageSize);
-            pageCount = Math.max(pageCount, 1);
+                    totalShares = response.getTotal();
 
-            pagination.setPageCount(pageCount);
+                    //mise à jour la pagination
+                    int totalPages = (int) Math.ceil((double) totalShares / PAGE_SIZE);
+                    pagination.setPageCount(Math.max(1, totalPages));
+                    pagination.setCurrentPageIndex(page);
 
-            if(!paginationInitialized){
-                paginationInitialized = true;
-                pagination.currentPageIndexProperty().addListener((observable, oldValue, newValue) -> {
-                    loadSharesPage((newValue.intValue()));
+                    //afficher/ masquer la pagination
+                    boolean showPagination = totalPages > 1;
+                    pagination.setVisible(showPagination);
+                    pagination.setManaged(showPagination);
+
+                    System.out.println("MySharesController - Total: " + totalShares +
+                            ", Pages: " + totalPages +
+                            ", Page actuelle: " + (page + 1));
                 });
+            } catch (Exception e) {
+                 e.printStackTrace();
+                 Platform.runLater(()->{
+                     sharesTable.getItems().clear();
+                     pagination.setVisible(false);
+                     pagination.setManaged(false);
+                     UIDialogs.showError("Erreur", null, "Impossible de charger les partages: " + e.getMessage());
+                     System.err.println("MySharesController - ERREUR lors du chargement: " + e.getMessage());
+                 });
             }
-
-            System.out.println("MySharesController - OK: reçus=" + (shares != null ? shares.size() : 0)
-                    + ", total=" + total + ", pageCount=" + pageCount);
-
-        } catch (Exception e) {
-            System.err.println("MySharesController - ERREUR lors du chargement: " + e.getMessage());
-
-            e.printStackTrace();
-            UIDialogs.showError("Erreur", null, "Impossible de charger les partages: " + e.getMessage());
-        }
+        }).start();
     }
 
-
-
-
+    /**
+     * charge une page de version d'un fichier => appelé par la Pagination quand user clique sur une page
+     * @param pageIndex
+     * @return
+     */
+    private Node loadPage(int pageIndex){
+        currentPage = pageIndex;
+        loadSharesPage(pageIndex);
+        return new VBox(); //=> retourne un node vide => la table est déjà affichée
+    }
 
     /**
      * initialise la colonne Actions avec les boutons
@@ -309,7 +359,7 @@ public class MySharesController {
     }
 
     /**
-     * révoquer une partage
+     * révoquer une partage =>ok
      * @param item
      */
     private void revokeShare(ShareItem item) {
@@ -320,26 +370,30 @@ public class MySharesController {
         );
 
         if(!confirmed) return;
+        new Thread(() -> {
+            try {
+                apiClient.revokeShare(item.getId());
 
-        try {
-            apiClient.revokeShare(item.getId());
+                Platform.runLater(() -> {
+                    //màj item localement => ca ne va pas!!
+//                    item.setRevoked(true);
+//                    sharesTable.refresh();
 
-            //màj item localement
-            item.setRevoked(true);
-            sharesTable.refresh();
-
-            // Recharger la liste??
-            //loadShares();
-            UIDialogs.showInfo("Succès", null, "Le partage a été révoqué.");
-        } catch (Exception e) {
-            e.printStackTrace();
-            UIDialogs.showError("Erreur", null, "Impossible de révoquer le partage: " + e.getMessage());
-        }
-
+                    //recharger la page depuis le serveur!!
+                    loadSharesPage(currentPage);
+                    UIDialogs.showInfo("Succès", null, "Le partage a été révoqué.");
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() ->{
+                    UIDialogs.showError("Erreur", null, "Impossible de révoquer le partage: " + e.getMessage());
+                });
+            }
+        }).start();
     }
 
     /**
-     * supprimer le partage
+     * supprimer le partage =>ok
      * @param item
      */
     private  void deleteShare(ShareItem item) {
@@ -351,16 +405,30 @@ public class MySharesController {
 
         if(!confirmed) return;
 
-        try{
-            apiClient.deleteShare(item.getId());
+        //en cas de supprime le dernière élément de la page, retourner à la page précédente
+        //dernière élément de la page (et pas la page 1)=> aller à la page précédente
+        int itemsOnPage = sharesTable.getItems().size();
+        int nextPage = (itemsOnPage == 1 && currentPage > 0) ? currentPage -1 : currentPage;
 
-            //retirer de la tabel
-            sharesTable.getItems().remove(item);
-            UIDialogs.showInfo("Succès", null, "Le partage a été supprimé.");
-        }catch(Exception e){
-            e.printStackTrace();
-            UIDialogs.showError("Erreur", null, "Impossible de supprimer le partage: " + e.getMessage());
-        }
+        new Thread(() -> {
+            try{
+                apiClient.deleteShare(item.getId());
+
+                Platform.runLater(()->{
+                    //recharger depuis le serveur la page calculée
+                    loadSharesPage(nextPage);
+                    UIDialogs.showInfo("Succès", null, "Le partage a été supprimé.");
+                });
+                //retirer de la table localement => ca ne va pas!!!
+//                sharesTable.getItems().remove(item);
+
+            }catch(Exception e){
+                e.printStackTrace();
+                Platform.runLater(()->{
+                    UIDialogs.showError("Erreur", null, "Impossible de supprimer le partage: " + e.getMessage());
+                });
+            }
+        }).start();
     }
 
 

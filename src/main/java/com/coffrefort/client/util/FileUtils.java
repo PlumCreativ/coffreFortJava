@@ -98,6 +98,7 @@ public class FileUtils {
         return String.format("%.2f GB", gb);
     }
 
+
     /**
      * Supprime l'extension d'un nom de fichier
      *

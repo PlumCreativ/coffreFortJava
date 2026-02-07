@@ -4,6 +4,7 @@ import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.App;
 import com.coffrefort.client.model.FileEntry;
 import com.coffrefort.client.model.NodeItem;
+import com.coffrefort.client.model.PagedFilesResponse;
 import com.coffrefort.client.model.Quota;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -57,6 +58,7 @@ public class MainController {
     @FXML private Button newFolderButton;
     @FXML private Button logoutButton;
     @FXML private Button gestionQuota;
+    @FXML private Pagination pagination;
 
     private ApiClient apiClient;
     private Runnable onLogout;
@@ -68,30 +70,11 @@ public class MainController {
 
     private Stage mainStage;
 
+    private static final int FILES_PER_PAGE = 10; //remettre à 20 ou 10 => pour modifier le limit!
+    private int currentPage = 0; //=> pour garder la trace de la page actuelle
+    private int totalFiles = 0;
+
     //méthodes
-    public void setApiClient(ApiClient apiClient) {
-        this.apiClient = apiClient;
-        System.out.println("MainController - setApiClient() appelé, apiClient = " + (apiClient != null ? "OK" : "NULL"));
-        System.out.println("MainController - Instance hashCode = " + this.hashCode());
-    }
-
-    public void setApp(App app){
-        this.app = app;
-        System.out.println("MainController - setApp() appelé, app = " + (app != null ? "OK" : "NULL"));
-        System.out.println("MainController - Instance hashCode = " + this.hashCode());
-    }
-
-    public void setOnLogout(Runnable callback) {
-        this.onLogout = callback;
-    }
-
-    public void setUserEmail(String email) {
-        if (userEmailLabel != null) {
-            userEmailLabel.setText(email);
-        }
-    }
-
-
 
     @FXML
     private void initialize() {
@@ -101,12 +84,21 @@ public class MainController {
         setupTreeView();
         setupTreeViewRootContextMenu();
 
+        //configuration la PageFactory (pagination) avant charger les données!
+        pagination.setPageFactory(this::loadPage);
+        pagination.setVisible(false);
+        pagination.setManaged(false);
+
         //mettre en place le listener
         // quand je clique sur un dossier => currentFolder <=> currentFolder= null
         treeView.getSelectionModel().selectedItemProperty().addListener((obs, oldItem, newItem) -> {
             if (newItem != null && newItem.getValue() != null) {
-                currentFolder = newItem.getValue();
-                loadFiles(currentFolder);
+                NodeItem node = newItem.getValue();
+
+                if (node.getType() == NodeItem.NodeType.FOLDER){
+                    currentFolder = node;
+                    loadFiles(currentFolder); //=> charge la page 0 du dossier séléctionné
+                }
             }
         });
 
@@ -130,7 +122,6 @@ public class MainController {
         // pour garantir le styles inline => éviter le  CSS externe
         // label bold inline
         quotaLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #333333; -fx-font-size: 12px;");
-
         quotaBar.setStyle("-fx-pref-height: 8px;");
 
         // IMPORTANT : on laisse JavaFX créer la skin, puis on stylise (avec retry)
@@ -164,10 +155,33 @@ public class MainController {
         });
 
         //masquer le bouton quota si pas admin
-        gestionQuota.setVisible(false);
-        gestionQuota.setManaged(false);
+        if(gestionQuota != null){
+            gestionQuota.setVisible(false);
+            gestionQuota.setManaged(false);
+        }
     }
 
+    public void setApiClient(ApiClient apiClient) {
+        this.apiClient = apiClient;
+        System.out.println("MainController - setApiClient() appelé, apiClient = " + (apiClient != null ? "OK" : "NULL"));
+        System.out.println("MainController - Instance hashCode = " + this.hashCode());
+    }
+
+    public void setApp(App app){
+        this.app = app;
+        System.out.println("MainController - setApp() appelé, app = " + (app != null ? "OK" : "NULL"));
+        System.out.println("MainController - Instance hashCode = " + this.hashCode());
+    }
+
+    public void setOnLogout(Runnable callback) {
+        this.onLogout = callback;
+    }
+
+    public void setUserEmail(String email) {
+        if (userEmailLabel != null) {
+            userEmailLabel.setText(email);
+        }
+    }
 
     /**
      * mettre à jour les colonnes dans TableView
@@ -248,7 +262,6 @@ public class MainController {
             return row;
         });
     }
-
 
     /**
      * mise à jour : Listener sur le TreeView
@@ -408,9 +421,10 @@ public class MainController {
 
                     treeView.getSelectionModel().clearSelection();
                     currentFolder = null;
+                    loadFiles(null);
 
                     //vider la table tant qu'aucun dossier n'est choisi
-                    fileList.clear();
+                    //fileList.clear();
                     updateFileCount();
                     statusLabel.setText("Données chargées");
                 });
@@ -432,7 +446,6 @@ public class MainController {
         }).start();
     }
 
-
     /**
      * Construction visuelle de l'arbre
      * @param node
@@ -449,38 +462,71 @@ public class MainController {
         return item;
     }
 
+    /**
+     * charge une page de fichier => appelé par la Pagination quand user clique sur une page
+     * @param pageIndex
+     * @return
+     */
+    private Node loadPage(int pageIndex){
+        currentPage = pageIndex;
+        loadFiles(currentFolder, pageIndex);
+        return new VBox(); //=> retourne un node vide => la table est déjà affichée
+    }
 
     /**
-     * Chargement des fichiers d'un dossier
+     * Chargement des fichiers d'un dossier =>ok
      * @param folder
      */
-    private void loadFiles(NodeItem folder) {
-
-        if(folder == null) {
-            return;
-        }
+    private void loadFiles(NodeItem folder, int page) {
+        if (apiClient == null) return;
 
         statusLabel.setText("Chargement des fichiers ...");
-        fileList.clear();
 
         new Thread(() -> {
             try{
-                var files = apiClient.listFiles(folder.getId());
+                Integer folderId = (folder != null) ? folder.getId() : null;
+                int offset = page * FILES_PER_PAGE;
+
+                PagedFilesResponse response = apiClient.listFilesPaginated(folderId, FILES_PER_PAGE, offset );
+                //var files = apiClient.listFiles(folder.getId()); => sans pagination
 
                 Platform.runLater(() -> {
-                    fileList.setAll(files);
+                    fileList.setAll(response.getFiles());
+                    totalFiles = response.getTotal();
+
+                    //mise à jour la pagination
+                    int totalPages = (int) Math.ceil((double) totalFiles / FILES_PER_PAGE);
+                    pagination.setPageCount(Math.max(1, totalPages));
+                    pagination.setCurrentPageIndex(page);
+
+                   //afficher/ masquer la pagination
+                    boolean showPagination = totalPages > 1;
+                    pagination.setVisible(showPagination);
+                    pagination.setManaged(showPagination);
+
                     updateFileCount();
-                    statusLabel.setText("Dossier: " + folder.getName());
+                    statusLabel.setText("Fichier chargés");
                 });
 
             }catch(Exception e){
                 e.printStackTrace();
                 Platform.runLater(() -> {
+                    fileList.clear(); //vider en cas d'erreur
+                    pagination.setVisible(false);
+                    pagination.setManaged(false);
                     UIDialogs.showError("Erreur", null, "Impossible de charger les fichiers: " + e.getMessage());
                     statusLabel.setText("Erreur de chargement des fichiers");
                 });
             }
         }).start();
+    }
+
+    /**
+     * surcharge pour charger la première page
+     * @param folder
+     */
+    private void loadFiles(NodeItem folder){
+        loadFiles(folder, 0);
     }
 
     // à écrire!!!!
@@ -573,7 +619,7 @@ public class MainController {
                     quotaBar.setProgress(ratio); // valeur entre 0 et 1
 
                     // texte
-                    quotaLabel.setText(formatSize(used) + " / " + formatSize(max));
+                    quotaLabel.setText(FileUtils.formatSize(used) + " / " + FileUtils.formatSize(max));
 
                     // couleur
                     if (ratio >= 1.0){
@@ -623,9 +669,7 @@ public class MainController {
 
             gestionQuota.setVisible(isAdmin);
             gestionQuota.setManaged(isAdmin);
-
         }catch (Exception e){
-
             gestionQuota.setVisible(false);
             gestionQuota.setManaged(false);
         }
@@ -658,8 +702,6 @@ public class MainController {
             UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de gestion des quotas "+e.getMessage());
         }
     }
-
-
 
 
 
@@ -1532,13 +1574,7 @@ public class MainController {
         }
     }
 
-    // à écrire!!!! => il est dans le FileEntry
-    private String formatSize(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        int exp = (int) (Math.log(bytes) / Math.log(1024));
-        char unit = "KMGTPE".charAt(exp - 1);
-        return String.format("%.1f %sB", bytes / Math.pow(1024, exp), unit);
-    }
+
 
 
 }

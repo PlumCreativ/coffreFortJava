@@ -9,22 +9,36 @@ import java.util.List;
 public class NodeItem {
 
     //propriétés
-    public int id;
-    private final String name;
-    private final List<NodeItem> children = new ArrayList<>();
+    public Integer id;
+    private String name;
+    private List<NodeItem> children = new ArrayList<>();
+    private NodeType type;
 
     // pour compatibilité avec l'ancien code (MainView)
     private final List<FileEntry> files = new ArrayList<>();
 
-
-    //méthodes
-    public NodeItem(int id, String name) {
-        this.id = id;
-        this.name = name;
+    //enum pour le type de noeud
+    public enum NodeType {
+        FOLDER,
+        FILE
     }
 
+    //public NodeItem() {}
+
+    //méthodes
+    public NodeItem(Integer id, String name, NodeType type) {
+        this.id = id;
+        this.name = name;
+        this.type = type;
+    }
+
+    public static NodeItem folder(int id, String name, NodeType type) {
+        return new NodeItem(id, name, type);
+    }
+
+    //NodeItem de type FOLDER => surcharge sans type
     public static NodeItem folder(int id, String name) {
-        return new NodeItem(id, name);
+        return new NodeItem(id, name, NodeItem.NodeType.FOLDER);
     }
 
     public NodeItem addChild(NodeItem child) {
@@ -32,16 +46,27 @@ public class NodeItem {
         return this;
     }
 
-    public void setId(int id) { this.id = id; }
+    public void setId(Integer id) { this.id = id; }
+    public void setName(String name){
+        this.name = name;
+    }
+    public void setType(NodeType type) {
+        this.type = type;
+    }
 
-    public int getId() { return id; }
+    public Integer getId() { return id; }
     public String getName() { return name; }
     public List<NodeItem> getChildren() { return children; }
+    public NodeType getType(){
+        return type;
+    }
+
+
 
 
     @Override
     public String toString() {
-        return name;
+        return name != null ? name : "sans nom";
     }
 
 
