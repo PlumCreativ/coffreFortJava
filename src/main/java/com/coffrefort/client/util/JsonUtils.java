@@ -282,10 +282,37 @@ public class JsonUtils {
         return result;
     }
 
+    /**
+     * Parse la réponse paginée des shares
+     * @param json
+     * @return
+     */
     public static PagedShareResponse parsePagedSharesResponse(String json) {
         try{
             return mapper.readValue(json, PagedShareResponse.class);
         }catch(Exception e){
+            throw new RuntimeException("JSON parse error: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Parse la réponse paginée des fichiers
+     */
+    public static PagedFilesResponse parsePagedFilesResponse(String json) {
+        try {
+            return mapper.readValue(json, PagedFilesResponse.class);
+        } catch (Exception e) {
+            throw new RuntimeException("JSON parse error: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Parse la réponse paginée des versions d'un fichier
+     */
+    public static PagedVersionsResponse parsePagedVersionsResponse(String json) {
+        try {
+            return mapper.readValue(json, PagedVersionsResponse.class);
+        } catch (Exception e) {
             throw new RuntimeException("JSON parse error: " + e.getMessage(), e);
         }
     }

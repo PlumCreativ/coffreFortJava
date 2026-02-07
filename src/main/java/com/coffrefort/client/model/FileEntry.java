@@ -1,18 +1,32 @@
 package com.coffrefort.client.model;
 
-import java.time.Instant;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class FileEntry {
 
     //propriétés
-    private final int id; //=> pour pouvoir supprimer, renommer, télécharger
-    private final String name;
-    private final long size;
-    private final String  createdAt;
-    private final String updatedAt;
+    private int id; //=> pour pouvoir supprimer, renommer, télécharger
+
+    //Jackson mappe "original_name"(backend) en "name"(Java)
+    @JsonProperty("original_name")
+    private String name;
+
+    private long size;
+
+    @JsonProperty("created_at")
+    private String  createdAt;
+
+    @JsonProperty("updated_at")
+    private String updatedAt;
 
     //méthodes
-    private FileEntry(int id, String name, long size, String  createdAt, String updatedAt) {
+
+    //constructeur par défaut pour Jackson
+    public FileEntry(){}
+
+    //constructeur avec paramètres
+    public FileEntry(int id, String name, long size, String  createdAt, String updatedAt) {
         this.id = id;
         this.name = name;
         this.size = size;
@@ -20,6 +34,7 @@ public class FileEntry {
         this.updatedAt = updatedAt;
     }
 
+    //méthode factory
     public static FileEntry of(int id, String name, long size, String  createdAt, String updatedAt) {
         return new FileEntry(id, name, size, createdAt, updatedAt);
     }
@@ -53,5 +68,16 @@ public class FileEntry {
     //Pour la TableView => colonne date
     public String getUpdatedAtFormatted() {
         return updatedAt != null ? updatedAt : "";
+    }
+
+    @Override
+    public String toString(){
+        return "FileEntry{" +
+                "id = " + id +
+                ", name = " + name + '\'' +
+                ", size = " + size + '\'' +
+                ", createdAt = " + createdAt + '\'' +
+                ", updatedAt + " + updatedAt + '\'' +
+                '}';
     }
 }

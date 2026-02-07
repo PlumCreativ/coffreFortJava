@@ -1,7 +1,6 @@
 package com.coffrefort.client.model;
 
 import java.util.List;
-import com.coffrefort.client.model.ShareItem;
 
 public class PagedShareResponse {
     private List<ShareItem> shares;

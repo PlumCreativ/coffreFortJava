@@ -23,6 +23,7 @@ public class ShareItem {
     private String folderName;
     private String fileName;
 
+    // //Jackson mappe "is_revoked"(backend) en "revoked"(Java)
     @JsonProperty("is_revoked")
     private boolean revoked;
     private boolean allowFixedVersion;

@@ -1,8 +1,8 @@
 package com.coffrefort.client.model;
 
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Représente une version renvoyée par:
@@ -23,11 +23,17 @@ public class VersionEntry {
     private int id;
     private int version;
     private long size;
+
+    @JsonProperty("created_at")
     private String createdAt;
     private String checksum;
+
+    @JsonProperty("is_current")
     private Boolean isCurrent;
 
     //méthodes
+
+    //constructeur par défaut pour Jackson
     public VersionEntry(){}
 
     public VersionEntry(int id, int version, long size, String createdAt, String checksum, Boolean isCurrent) {
@@ -125,7 +131,7 @@ public class VersionEntry {
     /**
      * Formate une taille en octets en unité lisible (B, KB, MB, GB, …) avec une décimale
      * @param size
-     * @return
+     * @return ??? peut etre mettre la function de la FileUtils
      */
     private static String getFormattedSize(long size) {
         if (size < 1024) return size + " B";                //=> size "bytes"
