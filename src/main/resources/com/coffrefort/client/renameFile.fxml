@@ -81,10 +81,12 @@
                        HBox.hgrow="ALWAYS"
                        style="-fx-font-size: 13px;"/>
 
-            <!-- ✅ AJOUT : Afficher l'extension qui sera ajoutée automatiquement -->
+            <!--Afficher l'extension qui sera ajoutée automatiquement -->
             <Label fx:id="extensionLabel"
                    text=".pdf"
-                   style="-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 13px;"/>
+                   style="-fx-text-fill: #980b0b;
+                        -fx-font-weight: bold;
+                        -fx-font-size: 13px;"/>
         </HBox>
     </VBox>
 

@@ -14,8 +14,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 
-import java.util.function.Consumer;
-
 public class FileDetailsView {
 
     private final VBox root = new VBox();
@@ -38,6 +36,9 @@ public class FileDetailsView {
     private final TableColumn<VersionEntry, Long> sizeCol = new TableColumn<>("Taille");
     private final TableColumn<VersionEntry, String> dateCol = new TableColumn<>("Créée le");
     private final TableColumn<VersionEntry, String> checksumCol = new TableColumn<>("Checksum");
+
+    // Pagination (présente dans le FXML)
+    private final Pagination pagination = new Pagination();
 
     // Boutons d'action
     private final Button copyChecksumButton = new Button("Copier checksum");
@@ -64,9 +65,9 @@ public class FileDetailsView {
         HBox header = buildHeader();
         root.getChildren().add(header);
 
-        // Séparateur
+        // Séparateur (marges comme FXML)
         Separator separator = new Separator();
-        VBox.setMargin(separator, new Insets(5, 0, 10, 0));
+        VBox.setMargin(separator, new Insets(10, 0, 5, 0));
         root.getChildren().add(separator);
 
         // ========== ZONE PROGRESSION ==========
@@ -80,7 +81,11 @@ public class FileDetailsView {
         buildVersionsTable();
         root.getChildren().add(versionsTable);
 
-        // Spacer
+        // Pagination (placée après la table comme FXML)
+        pagination.setMaxPageIndicatorCount(7);
+        root.getChildren().add(pagination);
+
+        // Spacer (comme FXML, avant les actions)
         Region spacer = new Region();
         VBox.setVgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
         root.getChildren().add(spacer);
@@ -106,7 +111,7 @@ public class FileDetailsView {
         icon.setStyle("-fx-font-size: 24px;");
         iconBox.getChildren().add(icon);
 
-        // Titre + sous-titre
+        // Titre + sous-titre (avec grow)
         VBox titleBox = new VBox(4);
         titleBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(titleBox, javafx.scene.layout.Priority.ALWAYS);
@@ -123,13 +128,21 @@ public class FileDetailsView {
 
         titleBox.getChildren().addAll(title, fileNameLabel, fileMetaLabel);
 
-        // Bouton remplacer
-        replaceButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 18; -fx-font-weight: bold;");
+        // Bouton remplacer (style + shadow comme FXML)
         replaceButton.setFont(Font.font(12));
-        replaceButton.setOnAction(e -> triggerReplace());
-
-        DropShadow shadow = new DropShadow(10.0, Color.rgb(153, 11, 11, 0.35));
+        replaceButton.setStyle(
+                "-fx-background-color: #980b0b; " +
+                        "-fx-text-fill: white; " +
+                        "-fx-background-radius: 4; " +
+                        "-fx-cursor: hand; " +
+                        "-fx-padding: 8 18; " +
+                        "-fx-font-weight: bold;"
+        );
+        DropShadow shadow = new DropShadow();
+        shadow.setRadius(10.0);
+        shadow.setColor(Color.color(0.60, 0.05, 0.05, 0.35));
         replaceButton.setEffect(shadow);
+        replaceButton.setOnAction(e -> triggerReplace());
 
         header.getChildren().addAll(iconBox, titleBox, replaceButton);
         return header;
@@ -139,13 +152,24 @@ public class FileDetailsView {
         progressBox.setSpacing(8);
         progressBox.setVisible(false);
         progressBox.setManaged(false);
+        progressBox.setStyle("-fx-padding: 10; -fx-background-color: #f5f5f5; -fx-background-radius: 6;");
 
         uploadStatusLabel.setWrapText(true);
         uploadStatusLabel.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px;");
 
         uploadProgressBar.setPrefWidth(660);
         uploadProgressBar.setPrefHeight(10);
-        uploadProgressBar.setStyle("-fx-background-radius: 6;");
+        uploadProgressBar.setProgress(0.0);
+        uploadProgressBar.setStyle("-fx-accent: #980b0b; -fx-background-radius: 6;");
+
+        DropShadow pbShadow = new DropShadow();
+        pbShadow.setWidth(5.0);
+        pbShadow.setHeight(5.0);
+        pbShadow.setRadius(2.0);
+        pbShadow.setOffsetX(1.0);
+        pbShadow.setOffsetY(1.0);
+        pbShadow.setColor(Color.color(0.6, 0.04, 0.04, 0.2));
+        uploadProgressBar.setEffect(pbShadow);
 
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
@@ -153,7 +177,13 @@ public class FileDetailsView {
         errorLabel.setPrefWidth(660);
         errorLabel.setWrapText(true);
         errorLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-        errorLabel.setStyle("-fx-background-color: #ffe5e5; -fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-padding: 8; -fx-background-radius: 6;");
+        errorLabel.setStyle(
+                "-fx-background-color: #ffe5e5; " +
+                        "-fx-text-fill: #980b0b; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-padding: 8; " +
+                        "-fx-background-radius: 6;"
+        );
 
         progressBox.getChildren().addAll(uploadStatusLabel, uploadProgressBar, errorLabel);
     }
@@ -177,7 +207,11 @@ public class FileDetailsView {
 
     private void buildVersionsTable() {
         versionsTable.setPrefHeight(320);
-        versionsTable.setStyle("-fx-background-radius: 6; -fx-border-radius: 6; -fx-border-color: #cccccc;");
+        versionsTable.setStyle(
+                "-fx-background-radius: 6; " +
+                        "-fx-border-radius: 6; " +
+                        "-fx-border-color: #cccccc;"
+        );
 
         // Colonnes
         versionCol.setPrefWidth(90);
@@ -189,11 +223,7 @@ public class FileDetailsView {
             @Override
             protected void updateItem(Long size, boolean empty) {
                 super.updateItem(size, empty);
-                if (empty || size == null) {
-                    setText(null);
-                } else {
-                    setText(formatSize(size));
-                }
+                setText((empty || size == null) ? null : formatSize(size));
             }
         });
 
@@ -203,9 +233,9 @@ public class FileDetailsView {
         checksumCol.setPrefWidth(270);
         checksumCol.setCellValueFactory(new PropertyValueFactory<>("checksumHex"));
 
-        versionsTable.getColumns().addAll(versionCol, sizeCol, dateCol, checksumCol);
+        versionsTable.getColumns().setAll(versionCol, sizeCol, dateCol, checksumCol);
 
-        // Placeholder
+        // Placeholder (comme FXML)
         VBox placeholder = new VBox(8);
         placeholder.setAlignment(Pos.CENTER);
 
@@ -220,21 +250,28 @@ public class FileDetailsView {
         placeholder.getChildren().addAll(placeholderText1, placeholderText2);
         versionsTable.setPlaceholder(placeholder);
 
-        // Effet ombre
-        DropShadow shadow = new DropShadow(2, 1, 1, Color.rgb(204, 204, 204, 0.30));
+        // Effet ombre (comme FXML)
+        DropShadow shadow = new DropShadow();
+        shadow.setWidth(5);
+        shadow.setHeight(5);
+        shadow.setRadius(2);
+        shadow.setOffsetX(1);
+        shadow.setOffsetY(1);
+        shadow.setColor(Color.color(0.8, 0.8, 0.8, 0.30));
         versionsTable.setEffect(shadow);
 
-        // Gestion de la sélection
+        // Gestion sélection (garde ton comportement)
         versionsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             boolean hasSelection = newVal != null;
+
             copyChecksumButton.setDisable(!hasSelection);
             openLocalFolderButton.setDisable(!hasSelection);
             downloadVersionButton.setDisable(!hasSelection);
 
             if (hasSelection) {
-                copyChecksumButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 16;");
-                openLocalFolderButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 16;");
-                downloadVersionButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 16;");
+                copyChecksumButton.setStyle(activeActionStyle());
+                openLocalFolderButton.setStyle(activeActionStyle());
+                downloadVersionButton.setStyle(activeActionStyle());
             } else {
                 resetButtonStyles();
             }
@@ -245,13 +282,6 @@ public class FileDetailsView {
         HBox actionsBox = new HBox(12);
         actionsBox.setAlignment(Pos.CENTER);
 
-        // Style par défaut (désactivé)
-        copyChecksumButton.setDisable(true);
-        openLocalFolderButton.setDisable(true);
-        downloadVersionButton.setDisable(true);
-
-        resetButtonStyles();
-
         copyChecksumButton.setFont(Font.font(12));
         openLocalFolderButton.setFont(Font.font(12));
         downloadVersionButton.setFont(Font.font(12));
@@ -260,41 +290,48 @@ public class FileDetailsView {
         openLocalFolderButton.setOnAction(e -> triggerOpenLocalFolder());
         downloadVersionButton.setOnAction(e -> triggerDownloadVersion());
 
+        // Style par défaut = désactivé (comme FXML)
+        copyChecksumButton.setDisable(true);
+        openLocalFolderButton.setDisable(true);
+        downloadVersionButton.setDisable(true);
+        resetButtonStyles();
+
         actionsBox.getChildren().addAll(copyChecksumButton, openLocalFolderButton, downloadVersionButton);
         return actionsBox;
     }
 
     private void resetButtonStyles() {
-        String disabledStyle = "-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 16;";
+        String disabledStyle =
+                "-fx-background-color: #cccccc; " +
+                        "-fx-text-fill: #333333; " +
+                        "-fx-background-radius: 4; " +
+                        "-fx-cursor: hand; " +
+                        "-fx-padding: 8 16;";
         copyChecksumButton.setStyle(disabledStyle);
         openLocalFolderButton.setStyle(disabledStyle);
         downloadVersionButton.setStyle(disabledStyle);
     }
 
+    private String activeActionStyle() {
+        return "-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 16;";
+    }
+
     // ========== TRIGGERS ==========
 
     private void triggerReplace() {
-        if (onReplace != null) {
-            onReplace.run();
-        }
+        if (onReplace != null) onReplace.run();
     }
 
     private void triggerCopyChecksum() {
-        if (onCopyChecksum != null) {
-            onCopyChecksum.run();
-        }
+        if (onCopyChecksum != null) onCopyChecksum.run();
     }
 
     private void triggerOpenLocalFolder() {
-        if (onOpenLocalFolder != null) {
-            onOpenLocalFolder.run();
-        }
+        if (onOpenLocalFolder != null) onOpenLocalFolder.run();
     }
 
     private void triggerDownloadVersion() {
-        if (onDownloadVersion != null) {
-            onDownloadVersion.run();
-        }
+        if (onDownloadVersion != null) onDownloadVersion.run();
     }
 
     // ========== SETTERS CALLBACKS ==========
@@ -359,6 +396,10 @@ public class FileDetailsView {
 
     public VersionEntry getSelectedVersion() {
         return versionsTable.getSelectionModel().getSelectedItem();
+    }
+
+    public Pagination getPagination() {
+        return pagination;
     }
 
     public Node getRoot() {

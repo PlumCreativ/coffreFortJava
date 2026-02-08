@@ -1,6 +1,7 @@
 package com.coffrefort.client.util;
 
 
+import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.model.*;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -143,6 +144,19 @@ public class JsonUtils {
         return s.replace("\\/", "/")
                 .replace("\\\"", "\"")
                 .replace("\\\\", "\\");
+    }
+
+    /**
+     * il était dans ApiClient
+     * Échappe les caractères spéciaux pour insérer une valeur proprement dans une chaîne JSON
+     * @param value
+     * @return
+     */
+    public static String escapeJson(String value) {
+        if (value == null) return "";
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
     }
 
     /**
@@ -530,6 +544,137 @@ public class JsonUtils {
         }
 
         return list;
+    }
+
+    // ILS ETAIENT DANS APICLIENT!
+    /**
+     * DTO interne pour parser les dossiers (id, name, parentId) avant de reconstruire l’arbre
+     * DTO =Data Transfer Object => pour structurer les données pour les rendre faciles à échanger
+     */
+    public static class FolderDto{
+        public int id;
+        public String name;
+        public Integer parentId;
+    }
+
+    /**
+     * Parse un JSON de type:
+     *   [ { "id":1, "name":"Docs", "parent_id":null }, ... ]
+     * ou un seul objet:
+     *   { "id":1, "name":"Docs", "parent_id":null, ... }
+     */
+    /**
+     * Parse un JSON de dossiers (tableau ou objet) en liste de FolderDto (id/name/parentId)
+     * Parse un JSON de type:
+     *   [ { "id":1, "name":"Docs", "parent_id":null }, ... ]
+     * ou un seul objet:
+     *   { "id":1, "name":"Docs", "parent_id":null, ... }
+     * @param json
+     * @return
+     */
+    public static List<FolderDto> parseFolders(String json) {
+        List<FolderDto> result = new ArrayList<>();
+        if (json == null || json.isBlank()) return result;
+
+        String trimmed = json.trim();
+
+        String[] parts;
+
+        if (trimmed.startsWith("[")) {    // => tableau: [ {...}, {...} ]
+
+            // enlever les crochets
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+            if (trimmed.isBlank()) return result;
+
+            // découper à la grosse: "},{"
+            parts = trimmed.split("\\},\\s*\\{"); //=> les objets séparés par } , {
+        } else {
+
+            //un seul objet: { ... }
+            parts = new String[]{ trimmed };
+        }
+
+        for (String part : parts) {
+            String objet = part.trim();
+            if (!objet.startsWith("{")) objet = "{" + objet;
+            if (!objet.endsWith("}")) objet = objet + "}";
+
+            FolderDto dto = new FolderDto();
+
+            // "id": 1
+            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
+
+            if (idStr != null) {
+                dto.id = Integer.parseInt(idStr);
+            }
+
+            // "name": "Documents"
+            dto.name = JsonUtils.extractJsonField(objet, "name");
+
+            // "parent_id": null ou un nombre
+            String parentStr = JsonUtils.extractJsonNumberField(objet, "parent_id");
+            if (parentStr != null) {
+                dto.parentId = Integer.parseInt(parentStr);
+            } else {
+                dto.parentId = null; // parent_id null => dossier racine
+            }
+            result.add(dto);
+        }
+        return result;
+    }
+
+    /**
+     * Parse un JSON de fichiers en liste de FileEntry (id, nom, taille, date)
+     * @param json
+     * @return
+     */
+    private List<FileEntry> parseFiles(String json) {
+        List<FileEntry> result = new ArrayList<>();
+        if (json == null || json.isBlank()) return result;
+
+        String trimmed = json.trim();
+        String[] parts;
+
+        if (trimmed.startsWith("[")) {
+
+            // Cas tableau: [ {...}, {...} ]
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+            if (trimmed.isBlank()) return result;
+
+            // découpe grossière sur "},{"
+            parts = trimmed.split("\\},\\s*\\{");
+        } else {
+
+            //un seul objet: { ... }
+            parts = new String[]{ trimmed };
+        }
+
+        // découper à la grosse: "},{"
+        String[] filesParts = trimmed.split("\\},\\s*\\{");
+
+        for (String part : filesParts) {
+            String objet = part.trim();
+            if (!objet.startsWith("{")) objet = "{" + objet;
+            if (!objet.endsWith("}")) objet = objet + "}";
+
+
+            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
+            String name = JsonUtils.extractJsonField(objet, "original_name");
+            String sizeStr = JsonUtils.extractJsonNumberField(objet, "size");
+            String date = JsonUtils.extractJsonField(objet, "created_at");
+            String updatedDate =  JsonUtils.extractJsonField(objet, "updated_at");
+
+            int id = (idStr != null) ? Integer.parseInt(idStr) : 0;
+            long size = (sizeStr != null )? Long.parseLong(sizeStr) : 0L;
+
+            if (name == null) {
+                // sécurité : si jamais ton API change de champ un jour
+                name = JsonUtils.extractJsonField(objet, "name");
+            }
+
+            result.add(FileEntry.of(id, name, size, date, updatedDate));
+        }
+        return result;
     }
 
 

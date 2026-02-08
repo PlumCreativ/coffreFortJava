@@ -2,6 +2,7 @@ package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.App;
+import com.coffrefort.client.util.UIDialogs;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -38,6 +39,9 @@ public class LoginController {
     @FXML private Button connexionButton;
     @FXML private Label statusLabel;
 
+    @FXML private Hyperlink ForgotPasswordLink;
+    @FXML private Hyperlink mentionsLegales;
+
 
     private final HttpClient http = HttpClient.newHttpClient();
 
@@ -65,8 +69,10 @@ public class LoginController {
 
         // Binder le texte des 2 champs mot de passe => avoir le même texte
         passwordVisibleField.textProperty().bindBidirectional(passwordField.textProperty());
-    }
 
+        //lier le lien à "mdp oublié"
+        ForgotPasswordLink.setOnAction(event -> handleForgotPassword());
+    }
 
     public void setApiClient(ApiClient apiClient) {
         this.apiClient = apiClient;
@@ -228,6 +234,28 @@ public class LoginController {
     public void handleGoToRegister() {
         if (onGoToRegister != null) {
             onGoToRegister.run();   // App.java ouvrira register.fxml
+        }
+    }
+
+    /**
+     * accèder à UI "forgotPassword"
+     */
+    private void handleForgotPassword(){
+        try{
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/forgotPassword.fxml"));
+
+            Parent root = loader.load();
+
+            Stage stage = (Stage)ForgotPasswordLink.getScene().getWindow();
+            stage.setScene(new Scene(root));
+            stage.setTitle("CryptoVault - Mot de passe oublié");
+            stage.setHeight(700);
+            stage.setWidth(400);
+
+        }catch (Exception e){
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,
+                    "Impossible d'ouvrir la page de réinitialisation : " + e.getMessage());
         }
     }
 

@@ -15,7 +15,8 @@
 <VBox prefHeight="220"
       prefWidth="420"
       spacing="15"
-      style="-fx-background-color: #E5E5E5; -fx-background-radius: 8;"
+      style="-fx-background-color: #E5E5E5;
+            -fx-background-radius: 8;"
       xmlns="http://javafx.com/javafx/25"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.coffrefort.client.controllers.ConfirmDeleteController">
@@ -30,7 +31,8 @@
         <!-- Bande rouge avec icône -->
         <VBox alignment="CENTER"
               prefWidth="48"
-              style="-fx-background-color: #980b0b; -fx-background-radius: 8;">
+              style="-fx-background-color: #980b0b;
+                        -fx-background-radius: 8;">
             <padding>
                 <Insets bottom="10" left="10" right="10" top="10"/>
             </padding>
@@ -73,7 +75,9 @@
                prefWidth="370"
                wrapText="true"
                textAlignment="CENTER"
-               style="-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 13px;"
+               style="-fx-text-fill: #980b0b;
+                   -fx-font-weight: bold;
+                   -fx-font-size: 13px;"
                text="NomDuFichier.ext"/>
 
         <Label alignment="CENTER"
@@ -93,7 +97,11 @@
                 text="Annuler"
                 cancelButton="true"
                 onAction="#handleCancel"
-                style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;">
+                style="-fx-background-color: #cccccc;
+                    -fx-text-fill: #333333;
+                    -fx-background-radius: 4;
+                    -fx-cursor: hand;
+                    -fx-padding: 8 20;">
             <font>
                 <Font size="12"/>
             </font>
@@ -103,7 +111,12 @@
                 text="Supprimer"
                 defaultButton="true"
                 onAction="#handleConfirm"
-                style="-fx-background-color: #d9534f; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;">
+                style="-fx-background-color: #d9534f;
+                        -fx-text-fill: white;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 24;
+                        -fx-font-weight: bold;">
             <font>
                 <Font size="12"/>
             </font>

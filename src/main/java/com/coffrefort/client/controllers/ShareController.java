@@ -5,6 +5,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.util.function.Consumer;
@@ -19,12 +20,14 @@ public class ShareController {
     @FXML private TextField expiresField;
     @FXML private TextField maxUsesField;
     @FXML private CheckBox allowVersionsCheckBox;
+    @FXML private VBox allowVersions;
 
     private Stage stage;
 
     // Callback appelé si l'utilisateur valide (destinataire)
     private Consumer<String> onShare;
     private Runnable onCancel;
+    private boolean isFolder = false;
 
     @FXML
     /**
@@ -64,10 +67,14 @@ public class ShareController {
         this.onShare = onShare;
     }
 
+    public void setIsFolder(boolean isFolder) {
+        this.isFolder = isFolder;
+    }
+
 
     @FXML
     /**
-     * Valide les champs (destinataire, maxUses, expiration), puis appelle le callback et ferme la fenêtre
+     * Valide les champs (destinataire, maxUses, expiration), puis appelle le callback et ferme la fenêtre =>ok
      */
     private void handleShare() {
         String recipient = (recipientField.getText() == null) ? "" : recipientField.getText().trim();
@@ -98,7 +105,6 @@ public class ShareController {
 
         //Integer expiresDays = 7; // => valeur par défaut
         Integer expiresDays = null; // => illimité
-
         try {
             String expiresText = expiresField.getText();
             if(expiresText != null && !expiresText.isBlank()){
@@ -119,10 +125,10 @@ public class ShareController {
 
         String data = recipient + "|"
                 + (maxUses != null ? maxUses : "null") + "|"
-                + (expiresDays != null ? maxUses : "null") + "|"
+                + (expiresDays != null ? expiresDays : "null") + "|"
                 + allowVersions;
 
-        // Appel du callback avec destinataire, masUses, expiresDays
+        // Appel du callback avec destinataire, masUses, expiresDays, allowedVersion
         if (onShare != null) {
             onShare.accept(data);
         }
@@ -131,6 +137,23 @@ public class ShareController {
         if (stage != null) {
             stage.close();
         }
+    }
+
+    /**
+     * Désactive et masque l'option "Allow fixed versions" (pour partage de dossiers)
+     */
+    public void disableVersionsOption(){
+        if(allowVersions != null){
+            if(allowVersionsCheckBox != null){
+                allowVersionsCheckBox.setSelected(false);
+                allowVersionsCheckBox.setDisable(true);
+                allowVersionsCheckBox.setVisible(false);
+                allowVersionsCheckBox.setManaged(false); //=> pour UI se réajuste
+            }
+
+            allowVersions.setVisible(false);
+        }
+
     }
 
     /**

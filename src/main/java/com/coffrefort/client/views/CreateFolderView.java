@@ -8,7 +8,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.effect.DropShadow;
-import javafx.scene.layout.*;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
@@ -52,7 +55,7 @@ public class CreateFolderView {
         iconBox.setAlignment(Pos.CENTER);
         iconBox.setPrefWidth(48);
         iconBox.setStyle("-fx-background-color: #980b0b; -fx-background-radius: 8;");
-        iconBox.setPadding(new Insets(10, 10, 10, 10));
+        iconBox.setPadding(new Insets(10));
 
         Text iconText = new Text("📁");
         iconText.setFill(Color.WHITE);
@@ -72,15 +75,14 @@ public class CreateFolderView {
         subtitle.setStyle("-fx-font-size: 11px;");
 
         titles.getChildren().addAll(title, subtitle);
-
         header.getChildren().addAll(iconBox, titles);
 
-        // Séparateur
+        // Séparateur + marges
         Separator sepTop = new Separator();
         VBox.setMargin(sepTop, new Insets(10, 0, 5, 0));
 
         // =========================
-        // Zone de saisie
+        // Zone de saisie (blanche)
         // =========================
         VBox inputBox = new VBox(12);
         inputBox.setStyle(
@@ -90,7 +92,7 @@ public class CreateFolderView {
                         "-fx-border-width: 1; " +
                         "-fx-border-radius: 6;"
         );
-        inputBox.setPadding(new Insets(15, 15, 15, 15));
+        inputBox.setPadding(new Insets(15));
 
         Label nameLabel = new Label("Nom du dossier :");
         nameLabel.setStyle("-fx-text-fill: #333333; -fx-font-weight: bold; -fx-font-size: 12px;");
@@ -110,16 +112,30 @@ public class CreateFolderView {
                 1.0, 1.0
         ));
 
-        // Label d'erreur (caché par défaut)
+        inputBox.getChildren().addAll(nameLabel, folderNameField);
+
+        // =========================
+        // Bloc erreur (comme FXML : VBox align CENTER + label caché)
+        // =========================
+        VBox errorBox = new VBox();
+        errorBox.setAlignment(Pos.CENTER);
+
         errorLabel.setText("");
-        errorLabel.setStyle("-fx-text-fill: #d32f2f; -fx-font-size: 11px; -fx-font-style: italic;");
         errorLabel.setWrapText(true);
         errorLabel.setManaged(false);
         errorLabel.setVisible(false);
+        errorLabel.setStyle(
+                "-fx-background-color: #ffe5e5; " +
+                        "-fx-text-fill: #980b0b; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-background-radius: 6;"
+        );
 
-        inputBox.getChildren().addAll(nameLabel, folderNameField, errorLabel);
+        errorBox.getChildren().add(errorLabel);
 
-        // Region pour pousser les boutons en bas
+        // =========================
+        // Spacer pour pousser les boutons en bas
+        // =========================
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
@@ -130,7 +146,7 @@ public class CreateFolderView {
         actions.setAlignment(Pos.CENTER_RIGHT);
 
         cancelButton.setCancelButton(true);
-        cancelButton.setText("Annuler");
+        cancelButton.setFont(Font.font(12));
         cancelButton.setStyle(
                 "-fx-background-color: #cccccc; " +
                         "-fx-text-fill: #333333; " +
@@ -138,11 +154,10 @@ public class CreateFolderView {
                         "-fx-cursor: hand; " +
                         "-fx-padding: 8 20;"
         );
-        cancelButton.setFont(Font.font(12));
         cancelButton.setOnAction(e -> triggerCancel());
 
         createButton.setDefaultButton(true);
-        createButton.setText("Créer");
+        createButton.setFont(Font.font(12));
         createButton.setStyle(
                 "-fx-background-color: #980b0b; " +
                         "-fx-text-fill: white; " +
@@ -151,7 +166,6 @@ public class CreateFolderView {
                         "-fx-padding: 8 24; " +
                         "-fx-font-weight: bold;"
         );
-        createButton.setFont(Font.font(12));
         createButton.setEffect(makeShadow(
                 0.6, 0.04, 0.04,
                 0.4,
@@ -169,6 +183,7 @@ public class CreateFolderView {
                 header,
                 sepTop,
                 inputBox,
+                errorBox,
                 spacer,
                 actions
         );

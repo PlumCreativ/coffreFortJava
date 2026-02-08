@@ -94,7 +94,11 @@
         <Button fx:id="cancelButton"
                 cancelButton="true"
                 onAction="#handleCancel"
-                style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;"
+                style="-fx-background-color: #cccccc;
+                        -fx-text-fill: #333333;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 20;"
                 text="Annuler">
             <font>
                 <Font size="12" />
@@ -104,7 +108,12 @@
         <Button fx:id="confirmButton"
                 defaultButton="true"
                 onAction="#handleConfirm"
-                style="-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;"
+                style="-fx-background-color: #980b0b;
+                        -fx-text-fill: white;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 24;
+                        -fx-font-weight: bold;"
                 text="Se déconnecter">
             <font>
                 <Font size="12" />

@@ -141,7 +141,7 @@
                                     -fx-font-weight: bold;
                                     -fx-padding: 4 12;" text="+">
                         <tooltip>
-                            <Tooltip text="Nouveau dossier" />
+                            <Tooltip text="Nouveau dossier à la racine" />
                         </tooltip>
                     </Button>
                 </HBox>
@@ -290,5 +290,4 @@
 <!--                       style="-fx-text-fill: #980b0b; -fx-cursor: hand; -fx-font-size: 11px;"/>-->
         </HBox>
     </bottom>
-
 </BorderPane>
