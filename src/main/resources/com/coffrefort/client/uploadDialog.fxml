@@ -31,7 +31,10 @@
     <children>
         <!-- En-tête avec logo et titre -->
         <HBox alignment="CENTER_LEFT" spacing="15">
-            <ImageView fitHeight="50" fitWidth="65" pickOnBounds="true" preserveRatio="true">
+            <ImageView fitHeight="50"
+                       fitWidth="65"
+                       pickOnBounds="true"
+                       preserveRatio="true">
                 <image>
                     <Image url="@/images/Logo_CryptoVault.png" />
                 </image>
@@ -39,7 +42,8 @@
 
             <VBox spacing="2">
                 <Text fill="#980b0b"
-                      style="-fx-font-weight: bold; -fx-font-size: 18px;"
+                      style="-fx-font-weight: bold;
+                            -fx-font-size: 18px;"
                       text="📤 Uploader des fichiers"
                       textAlignment="CENTER"
                       wrappingWidth="288.48866271972656" />
@@ -58,7 +62,11 @@
 
         <!-- Zone de sélection de fichiers -->
         <VBox spacing="12"
-              style="-fx-background-color: white; -fx-background-radius: 6; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-border-radius: 6;"
+              style="-fx-background-color: white;
+                    -fx-background-radius: 6;
+                    -fx-border-color: #cccccc;
+                    -fx-border-width: 1;
+                    -fx-border-radius: 6;"
               VBox.vgrow="ALWAYS">
             <padding>
                 <Insets bottom="15" left="15" right="15" top="15" />
@@ -70,7 +78,11 @@
                         onAction="#handleSelectFile"
                         prefHeight="39.0"
                         prefWidth="177.0"
-                        style="-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 10 20;"
+                        style="-fx-background-color: #980b0b;
+                                -fx-text-fill: white;
+                                -fx-background-radius: 4;
+                                -fx-cursor: hand;
+                                -fx-padding: 10 20;"
                         text="📁 Choisir un fichier"
                         textAlignment="CENTER">
                     <font>
@@ -103,20 +115,29 @@
 
             <!-- Liste des fichiers sélectionnés -->
             <VBox fx:id="fileListContainer" spacing="8" VBox.vgrow="ALWAYS">
-                <Label style="-fx-text-fill: #333333; -fx-font-weight: bold; -fx-font-size: 12px;"
+                <Label style="-fx-text-fill: #333333;
+                            -fx-font-weight: bold;
+                            -fx-font-size: 12px;"
                        text="Fichiers sélectionnés :" />
 
                 <!-- Zone scrollable pour les fichiers -->
                 <VBox fx:id="selectedFilesList"
                       minHeight="120"
                       spacing="6"
-                      style="-fx-background-color: #f8f8f8; -fx-background-radius: 4; -fx-padding: 10; -fx-border-color: #e0e0e0; -fx-border-width: 1; -fx-border-radius: 4;"
+                      style="-fx-background-color: #f8f8f8;
+                            -fx-background-radius: 4;
+                            -fx-padding: 10;
+                            -fx-border-color: #e0e0e0;
+                            -fx-border-width: 1;
+                            -fx-border-radius: 4;"
                       VBox.vgrow="ALWAYS">
 
                     <Label fx:id="noFileLabel"
                            alignment="CENTER"
                            maxWidth="Infinity"
-                           style="-fx-text-fill: #999999; -fx-font-style: italic; -fx-font-size: 11px;"
+                           style="-fx-text-fill: #999999;
+                                -fx-font-style: italic;
+                                -fx-font-size: 11px;"
                            text="Aucun fichier sélectionné" />
                 </VBox>
             </VBox>
@@ -153,7 +174,9 @@
               visible="false">
             <HBox alignment="CENTER_LEFT" spacing="10">
                 <Label fx:id="progressLabel"
-                       style="-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 12px;"
+                       style="-fx-text-fill: #980b0b;
+                            -fx-font-weight: bold;
+                            -fx-font-size: 12px;"
                        text="Upload en cours..." />
                 <Region HBox.hgrow="ALWAYS" />
                 <Label fx:id="progressPercentLabel"
@@ -185,7 +208,9 @@
         <!-- Messages d'erreur ou succès -->
         <Label fx:id="messageLabel"
                managed="false"
-               style="-fx-padding: 10; -fx-background-radius: 4; -fx-font-size: 12px;"
+               style="-fx-padding: 10;
+                    -fx-background-radius: 4;
+                    -fx-font-size: 12px;"
                visible="false" wrapText="true" />
 
         <!-- Boutons d'action -->
@@ -196,7 +221,11 @@
 
             <Button fx:id="cancelButton"
                     onAction="#handleCancel"
-                    style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;"
+                    style="-fx-background-color: #cccccc;
+                            -fx-text-fill: #333333;
+                            -fx-background-radius: 4;
+                            -fx-cursor: hand;
+                            -fx-padding: 8 20;"
                     text="Annuler">
                 <font>
                     <Font size="12" />
@@ -207,7 +236,12 @@
                     defaultButton="true"
                     disable="true"
                     onAction="#handleUpload"
-                    style="-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;"
+                    style="-fx-background-color: #980b0b;
+                            -fx-text-fill: white;
+                            -fx-background-radius: 4;
+                            -fx-cursor: hand;
+                            -fx-padding: 8 24;
+                            -fx-font-weight: bold;"
                     text="📤 Uploader">
                 <font>
                     <Font size="12" />
@@ -228,6 +262,5 @@
                 </effect>
             </Button>
         </HBox>
-
     </children>
 </VBox>

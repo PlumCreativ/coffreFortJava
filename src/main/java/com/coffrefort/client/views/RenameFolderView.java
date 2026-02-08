@@ -9,20 +9,24 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 
 import java.util.function.Consumer;
 
 public class RenameFolderView {
 
-    private final VBox root = new VBox();
+    private final VBox root = new VBox(15);
+
     private final Label currentNameLabel = new Label("NomDuDossier");
     private final TextField nameField = new TextField();
     private final Label errorLabel = new Label("Erreur");
+
     private final Button cancelButton = new Button("Annuler");
     private final Button confirmButton = new Button("Renommer");
 
@@ -34,38 +38,47 @@ public class RenameFolderView {
     }
 
     private void buildUi() {
-        root.setPrefSize(420, 240);
+        root.setPrefSize(420, 350);
         root.setSpacing(15);
         root.setStyle("-fx-background-color: #E5E5E5; -fx-background-radius: 8;");
         root.setPadding(new Insets(20, 25, 20, 25));
 
-        // ========== EN-TÊTE ==========
+        // ===== En-tête =====
         HBox header = buildHeader();
         root.getChildren().add(header);
 
         // Séparateur
         Separator separator = new Separator();
-        VBox.setMargin(separator, new Insets(5, 0, 10, 0));
+        VBox.setMargin(separator, new Insets(10, 0, 5, 0));
         root.getChildren().add(separator);
 
-        // ========== ZONE DE MESSAGE + INPUT ==========
+        // ===== Zone message + input (comme FXML) =====
         VBox messageBox = buildMessageBox();
         root.getChildren().add(messageBox);
 
         // Spacer
         Region spacer = new Region();
-        VBox.setVgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(spacer, Priority.ALWAYS);
         root.getChildren().add(spacer);
 
-        // ========== BOUTONS D'ACTION ==========
+        // ===== Boutons =====
         HBox actionsBox = buildActionsBox();
         root.getChildren().add(actionsBox);
+
+        // Focus behavior
+        root.setFocusTraversable(true);
+        root.setOnMouseClicked(e -> {
+            Object t = e.getTarget();
+            if (!(t instanceof TextField)) {
+                root.requestFocus();
+            }
+        });
     }
 
     private HBox buildHeader() {
         HBox header = new HBox(12);
+        header.setAlignment(Pos.CENTER_LEFT);
 
-        // Bande rouge avec icône
         VBox iconBox = new VBox();
         iconBox.setAlignment(Pos.CENTER);
         iconBox.setPrefWidth(48);
@@ -77,7 +90,6 @@ public class RenameFolderView {
         icon.setStyle("-fx-font-size: 24px;");
         iconBox.getChildren().add(icon);
 
-        // Titre + sous-titre
         VBox titleBox = new VBox(4);
         titleBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -96,85 +108,101 @@ public class RenameFolderView {
     }
 
     private VBox buildMessageBox() {
-        VBox messageBox = new VBox(10);
+        VBox box = new VBox(10);
 
-        // Label "Nom actuel :"
         Label currentLabel = new Label("Nom actuel :");
         currentLabel.setAlignment(Pos.CENTER);
         currentLabel.setPrefWidth(370);
         currentLabel.setWrapText(true);
-        currentLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        currentLabel.setTextAlignment(TextAlignment.CENTER);
         currentLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 13px;");
 
-        // Nom actuel du dossier
         currentNameLabel.setAlignment(Pos.CENTER);
         currentNameLabel.setPrefWidth(370);
         currentNameLabel.setWrapText(true);
-        currentNameLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        currentNameLabel.setTextAlignment(TextAlignment.CENTER);
         currentNameLabel.setStyle("-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 13px;");
 
-        // Champ de saisie
         nameField.setPromptText("Nouveau nom du dossier");
         nameField.setStyle("-fx-background-radius: 6; -fx-border-radius: 6; -fx-border-color: #cccccc; -fx-padding: 8 10;");
         nameField.setOnAction(e -> triggerConfirm());
 
-        // Label d'erreur (caché par défaut)
         errorLabel.setVisible(false);
         errorLabel.setManaged(false);
         errorLabel.setAlignment(Pos.CENTER);
         errorLabel.setPrefWidth(370);
         errorLabel.setWrapText(true);
-        errorLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-        errorLabel.setStyle("-fx-background-color: #ffe5e5; -fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-padding: 8; -fx-background-radius: 6;");
+        errorLabel.setTextAlignment(TextAlignment.CENTER);
+        errorLabel.setStyle(
+                "-fx-background-color: #ffe5e5; " +
+                        "-fx-text-fill: #980b0b; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-background-radius: 6;"
+        );
 
-        messageBox.getChildren().addAll(currentLabel, currentNameLabel, nameField, errorLabel);
-        return messageBox;
+        box.getChildren().addAll(currentLabel, currentNameLabel, nameField, errorLabel);
+        return box;
     }
 
     private HBox buildActionsBox() {
-        HBox actionsBox = new HBox(12);
-        actionsBox.setAlignment(Pos.CENTER);
+        HBox actions = new HBox(12);
+        actions.setAlignment(Pos.CENTER);
 
-        // Bouton Annuler
         cancelButton.setCancelButton(true);
-        cancelButton.setStyle("-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;");
         cancelButton.setFont(Font.font(12));
+        cancelButton.setStyle(
+                "-fx-background-color: #cccccc; " +
+                        "-fx-text-fill: #333333; " +
+                        "-fx-background-radius: 4; " +
+                        "-fx-cursor: hand; " +
+                        "-fx-padding: 8 20;"
+        );
         cancelButton.setOnAction(e -> triggerCancel());
 
-        // Bouton Renommer
         confirmButton.setDefaultButton(true);
-        confirmButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;");
         confirmButton.setFont(Font.font(12));
+        confirmButton.setStyle(
+                "-fx-background-color: #980b0b; " +
+                        "-fx-text-fill: white; " +
+                        "-fx-background-radius: 4; " +
+                        "-fx-cursor: hand; " +
+                        "-fx-padding: 8 24; " +
+                        "-fx-font-weight: bold;"
+        );
+
+        DropShadow ds = new DropShadow();
+        ds.setRadius(10.0);
+        ds.setColor(Color.color(0.60, 0.05, 0.05, 0.35));
+        confirmButton.setEffect(ds);
+
         confirmButton.setOnAction(e -> triggerConfirm());
 
-        DropShadow shadow = new DropShadow(10.0, Color.rgb(153, 11, 11, 0.35));
-        confirmButton.setEffect(shadow);
-
-        actionsBox.getChildren().addAll(cancelButton, confirmButton);
-        return actionsBox;
+        actions.getChildren().addAll(cancelButton, confirmButton);
+        return actions;
     }
 
-    // ========== TRIGGERS ==========
+    // ===== Triggers =====
 
     private void triggerConfirm() {
-        String newName = nameField.getText();
-        if (newName == null || newName.trim().isEmpty()) {
+        String newName = getNewName();
+        if (newName.isEmpty()) {
             showError("Le nom ne peut pas être vide.");
             return;
         }
         hideError();
         if (onConfirm != null) {
-            onConfirm.accept(newName.trim());
+            onConfirm.accept(newName);
         }
     }
 
     private void triggerCancel() {
+        hideError();
         if (onCancel != null) {
             onCancel.run();
         }
     }
 
-    // ========== SETTERS CALLBACKS ==========
+    // ===== API publique =====
 
     public void setOnConfirm(Consumer<String> onConfirm) {
         this.onConfirm = onConfirm;
@@ -184,15 +212,22 @@ public class RenameFolderView {
         this.onCancel = onCancel;
     }
 
-    // ========== MÉTHODES PUBLIQUES ==========
-
     public void setCurrentName(String name) {
         currentNameLabel.setText(name != null ? name : "");
-        nameField.setText(name); // Pré-remplir le champ
+        nameField.setText(""); // dans le FXML, on ne pré-remplit pas forcément le nouveau nom
+    }
+
+    public String getNewName() {
+        String v = nameField.getText();
+        return v == null ? "" : v.trim();
+    }
+
+    public void setNewName(String name) {
+        nameField.setText(name == null ? "" : name);
     }
 
     public void showError(String message) {
-        errorLabel.setText(message);
+        errorLabel.setText(message == null ? "" : message);
         errorLabel.setVisible(true);
         errorLabel.setManaged(true);
     }

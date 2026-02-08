@@ -302,7 +302,7 @@ public class ApiClient {
             sb.append("\"parent_id\": ").append(parentId).append(",");
         }
 
-        sb.append("\"name\": \"").append(escapeJson(name)).append("\"");
+        sb.append("\"name\": \"").append(JsonUtils.escapeJson(name)).append("\"");
         sb.append("}");
 //        String jsonBody = "{"
 //                + "\"user_id\": " + userId + ","
@@ -821,25 +821,19 @@ public class ApiClient {
 
 
     /**
+     * POUR FILE
      * Crée un lien de partage via POST /shares et retourne l’URL générée par le backend
-     * @param id
+     * @param fileId
      * @param data Format: "recipient|maxUses|expiresDays|allowVersions"
      * @return
      * @throws Exception
      */
-    public String shareFile(int id, String data) throws Exception {
-        if(authToken == null || authToken.isEmpty()) {
-            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
-        }
+    public String shareFile(int fileId, String data) throws Exception {
 
-        if(id <= 0) {
-            throw new IllegalArgumentException("id invalide");
-        }
-
-        //découper => destinataire|maxUses|expiresDays
+        //découper => destinataire|maxUses|expiresDays|allowVersions
         String[] parts = data.split("\\|");
         if(parts.length != 4){
-            throw new IllegalArgumentException("Format de donées invalide");
+            throw new IllegalArgumentException("Format de donées invalide \n(attendu: destinataire|maxUses|expiresDays|allowVersions)");
         }
 
         String destinataire = parts[0];
@@ -847,33 +841,108 @@ public class ApiClient {
         String expiresDaysStr = parts[2];
         boolean allowVersions = Boolean.parseBoolean(parts[3]);
 
-        // construire le JSON
+       Integer maxUses = null;
+       if(!"null".equals(maxUsesStr) && !maxUsesStr.isEmpty()){
+           try{
+               maxUses = Integer.parseInt(maxUsesStr);
+           }catch(NumberFormatException e){
+               //ignoré
+           }
+       }
+
+       Integer expiresDays = null;
+        if(!"null".equals(expiresDaysStr) && !expiresDaysStr.isEmpty()){
+            try{
+                expiresDays = Integer.parseInt(expiresDaysStr);
+            }catch(NumberFormatException e){
+                //ignoré
+            }
+        }
+
+        String label = "Partage avec " + destinataire;
+
+        return createShare("file", fileId, label, maxUses, expiresDays, allowVersions);
+    }
+
+    /**
+     * POUR Folder
+     * @param folderId
+     * @param data
+     * @return
+     * @throws Exception
+     */
+    public String shareFolder(int folderId, String data) throws Exception {
+
+        //découper => destinataire|maxUses|expiresDays
+        String[] parts = data.split("\\|");
+        if(parts.length != 4){
+            throw new IllegalArgumentException("Format de donées invalide \n(attendu: destinataire|maxUses|expiresDays)");
+        }
+
+        String destinataire = parts[0];
+        String maxUsesStr = parts[1];
+        String expiresDaysStr = parts[2];
+        // parts[3] (allowVersions) est ignoré pour les dossiers
+
+        Integer maxUses = null;
+        if(!"null".equals(maxUsesStr) && !maxUsesStr.isEmpty()){
+            try{
+                maxUses = Integer.parseInt(maxUsesStr);
+            }catch(NumberFormatException e){
+                //ignoré
+            }
+        }
+
+        Integer expiresDays = null;
+        if(!"null".equals(expiresDaysStr) && !expiresDaysStr.isEmpty()){
+            try{
+                expiresDays = Integer.parseInt(expiresDaysStr);
+            }catch(NumberFormatException e){
+                //ignoré
+            }
+        }
+
+        String label = "Partage dossier avec " + destinataire;
+
+        return createShare("folder", folderId, label, maxUses, expiresDays, false);
+    }
+
+    public String createShare(String kind, int targetId, String label, Integer maxUses, Integer expiresDays, boolean allowVersions) throws Exception{
+        if(authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
+        }
+
+        if(targetId <= 0) {
+            throw new IllegalArgumentException("id invalide");
+        }
+
+        if(!"file".equals(kind) && !"folder".equals(kind)){
+            throw new IllegalArgumentException("kind doit être 'file' ou 'folder'");
+        }
+
+        // Construire le JSON
         StringBuilder jsonBody = new StringBuilder();
         jsonBody.append("{");
-        jsonBody.append("\"kind\":\"file\",");
-        jsonBody.append("\"target_id\":").append(id).append(",");
-        jsonBody.append("\"label\":\"").append(escapeJson("Partage avec " + destinataire)).append("\",");
+        jsonBody.append("\"kind\":\"").append(kind).append("\",");
+        jsonBody.append("\"target_id\":").append(targetId).append(",");
+        jsonBody.append("\"label\":\"").append(JsonUtils.escapeJson(label)).append("\",");
         jsonBody.append("\"allow_fixed_versions\":").append(allowVersions);
 
-        //max uses
-        if(!"null".equals(maxUsesStr)){
-            try{
-                int maxUses = Integer.parseInt(maxUsesStr);
-                jsonBody.append("\"max_uses\":").append(maxUses);
-            }catch (NumberFormatException e){
-                //ignore
-            }
+        // Ajouter max_uses si présent
+        if(maxUses != null && maxUses > 0){
+            jsonBody.append(",\"max_uses\":").append(maxUses);
         }
 
-        //expires at
-        if(!"null".equals(expiresDaysStr)){
-            try{
-                int expireAt = Integer.parseInt(expiresDaysStr);
-                jsonBody.append("\"expires_at\":").append(expireAt).append("\"");
-            }catch (NumberFormatException e){
-                //ignore
-            }
+        // ajouter expires_at si présent  =>calculer la date ISO
+        if(expiresDays != null && expiresDays > 0){
+            // Calculer la date future en ISO 8601
+            java.time.ZonedDateTime futureDate = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC)
+                    .plusDays(expiresDays);
+            String isoDate = futureDate.format(java.time.format.DateTimeFormatter.ISO_INSTANT);
+
+            jsonBody.append(",\"expires_at\":\"").append(isoDate).append("\"");
         }
+
         jsonBody.append("}");
 
         System.out.println("ApiClient - JSON envoyé: " + jsonBody);
@@ -902,11 +971,30 @@ public class ApiClient {
             url = JsonUtils.unescapeJsonString(url);
 
             if(url == null || url.isBlank()){
-
                 //renvoyer body pour le debug
                 return body;
             }
             return url;
+        }
+
+        if(status == 400){
+            String error = JsonUtils.extractJsonField(body, "error");
+            error = JsonUtils.unescapeJsonString(error);
+            throw new IllegalArgumentException("Validation échouée : " + error);
+        }
+
+        if(status == 403){
+            String error = JsonUtils.extractJsonField(body, "error");
+            error = JsonUtils.unescapeJsonString(error);
+            throw new Exception("Accès refusé : " + error);
+        }
+
+        if(status == 404){
+            throw new Exception(kind.equals("file") ? "Fichier introuvable" : "Dossier introuvable");
+        }
+
+        if(status == 401){
+            throw new AuthenticationException("Non autorisé : token invalide ou expiré");
         }
 
         String error = JsonUtils.extractJsonField(body, "error");
@@ -917,6 +1005,7 @@ public class ApiClient {
         }
 
         throw new RuntimeException("Erreur de partage: (HTTP " + status + "): " + error);
+
     }
 
     /**
@@ -1095,7 +1184,7 @@ public class ApiClient {
 //        }
 
         String jsonBody = "{"
-                + "\"name\":\"" + escapeJson(newName.trim()) + "\""
+                + "\"name\":\"" + JsonUtils.escapeJson(newName.trim()) + "\""
                 + "}";
 
         // Construction de la requête HTTP
@@ -1142,7 +1231,7 @@ public class ApiClient {
         }
 
         String jsonBody = "{"
-                + "\"name\":\"" + escapeJson(newName.trim()) + "\""
+                + "\"name\":\"" + JsonUtils.escapeJson(newName.trim()) + "\""
                 + "}";
 
         // Construction de la requête HTTP
@@ -1405,18 +1494,19 @@ public class ApiClient {
         throw new RuntimeException(error != null ? error : "Erreur lors de la modification");
     }
 
+    public void requestPasswordReset(String email) throws Exception {
+        // TODO: Implémenter l'appel API backend pour la réinitialisation
+        // Exemple:
+        // POST /auth/forgot-password
+        // Body: {"email": "user@example.com"}
+
+        throw new UnsupportedOperationException(
+                "La fonctionnalité de réinitialisation de mot de passe n'est pas encore implémentée côté serveur."
+        );
+    }
+
 
     //méthodes private  => HELPERS
-
-    /**
-     * DTO interne pour parser les dossiers (id, name, parentId) avant de reconstruire l’arbre
-     * DTO =Data Transfer Object => pour structurer les données pour les rendre faciles à échanger
-     */
-    private static class FolderDto{
-        int id;
-        String name;
-        Integer parentId;
-    }
 
 
     /**
@@ -1426,7 +1516,7 @@ public class ApiClient {
      * @return
      */
     private NodeItem buildFolderTreeFromJson(String json) {
-        List<FolderDto> folders = parseFolders(json);
+        List<JsonUtils.FolderDto> folders = JsonUtils.parseFolders(json);
 
         // Racine virtuelle (id 0) non affichée parce que TreeView.showRoot = false
         NodeItem root = NodeItem.folder(0, "Racine");
@@ -1434,14 +1524,14 @@ public class ApiClient {
         java.util.Map<Integer, NodeItem> map = new java.util.HashMap<>();
 
         // Créer tous les noeuds
-        for (FolderDto f : folders) {
+        for (JsonUtils.FolderDto f : folders) {
             NodeItem node = NodeItem.folder(f.id, f.name);
             // ou NodeItem node = NodeItem.folder(f.id, f.name, NodeItem.NodeType.FOLDER);
             map.put(f.id, node);
         }
 
         // Assembler l'arborescence selon parent_id
-        for (FolderDto f : folders) {
+        for (JsonUtils.FolderDto f : folders) {
             NodeItem node = map.get(f.id);
 
             if (f.parentId == null || f.parentId == 0) {
@@ -1463,125 +1553,7 @@ public class ApiClient {
     }
 
 
-    /**
-     * Parse un JSON de type:
-     *   [ { "id":1, "name":"Docs", "parent_id":null }, ... ]
-     * ou un seul objet:
-     *   { "id":1, "name":"Docs", "parent_id":null, ... }
-     */
-    /**
-     * Parse un JSON de dossiers (tableau ou objet) en liste de FolderDto (id/name/parentId)
-     * Parse un JSON de type:
-     *   [ { "id":1, "name":"Docs", "parent_id":null }, ... ]
-     * ou un seul objet:
-     *   { "id":1, "name":"Docs", "parent_id":null, ... }
-     * @param json
-     * @return
-     */
-    private List<FolderDto> parseFolders(String json) {
-        List<FolderDto> result = new ArrayList<>();
-        if (json == null || json.isBlank()) return result;
 
-        String trimmed = json.trim();
-
-        String[] parts;
-
-        if (trimmed.startsWith("[")) {    // => tableau: [ {...}, {...} ]
-
-            // enlever les crochets
-            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
-            if (trimmed.isBlank()) return result;
-
-            // découper à la grosse: "},{"
-            parts = trimmed.split("\\},\\s*\\{"); //=> les objets séparés par } , {
-        } else {
-
-            //un seul objet: { ... }
-            parts = new String[]{ trimmed };
-        }
-
-        for (String part : parts) {
-            String objet = part.trim();
-            if (!objet.startsWith("{")) objet = "{" + objet;
-            if (!objet.endsWith("}")) objet = objet + "}";
-
-            FolderDto dto = new FolderDto();
-
-            // "id": 1
-            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
-
-            if (idStr != null) {
-                dto.id = Integer.parseInt(idStr);
-            }
-
-            // "name": "Documents"
-            dto.name = JsonUtils.extractJsonField(objet, "name");
-
-            // "parent_id": null ou un nombre
-            String parentStr = JsonUtils.extractJsonNumberField(objet, "parent_id");
-            if (parentStr != null) {
-                dto.parentId = Integer.parseInt(parentStr);
-            } else {
-                dto.parentId = null; // parent_id null => dossier racine
-            }
-            result.add(dto);
-        }
-        return result;
-    }
-
-    /**
-     * Parse un JSON de fichiers en liste de FileEntry (id, nom, taille, date)
-     * @param json
-     * @return
-     */
-    private List<FileEntry> parseFiles(String json) {
-        List<FileEntry> result = new ArrayList<>();
-        if (json == null || json.isBlank()) return result;
-
-        String trimmed = json.trim();
-        String[] parts;
-
-        if (trimmed.startsWith("[")) {
-
-            // Cas tableau: [ {...}, {...} ]
-            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
-            if (trimmed.isBlank()) return result;
-
-            // découpe grossière sur "},{"
-            parts = trimmed.split("\\},\\s*\\{");
-        } else {
-
-            //un seul objet: { ... }
-            parts = new String[]{ trimmed };
-        }
-
-        // découper à la grosse: "},{"
-        String[] filesParts = trimmed.split("\\},\\s*\\{");
-
-        for (String part : filesParts) {
-            String objet = part.trim();
-            if (!objet.startsWith("{")) objet = "{" + objet;
-            if (!objet.endsWith("}")) objet = objet + "}";
-
-
-            String idStr = JsonUtils.extractJsonNumberField(objet, "id");
-            String name = JsonUtils.extractJsonField(objet, "original_name");
-            String sizeStr = JsonUtils.extractJsonNumberField(objet, "size");
-            String date = JsonUtils.extractJsonField(objet, "created_at");
-            String updatedDate =  JsonUtils.extractJsonField(objet, "updated_at");
-
-            int id = (idStr != null) ? Integer.parseInt(idStr) : 0;
-            long size = (sizeStr != null )? Long.parseLong(sizeStr) : 0L;
-
-            if (name == null) {
-                // sécurité : si jamais ton API change de champ un jour
-                name = JsonUtils.extractJsonField(objet, "name");
-            }
-
-            result.add(FileEntry.of(id, name, size, date, updatedDate));
-        }
-        return result;
-    }
 
     /**
      * Construit le body multipart/form-data (folder_id optionnel + part 'file') pour les uploads
@@ -1633,19 +1605,7 @@ public class ApiClient {
 
 
     /**
-     * Échappe les caractères spéciaux pour insérer une valeur proprement dans une chaîne JSON
-     * @param value
-     * @return
-     */
-    private String escapeJson(String value) {
-        if (value == null) return "";
-        return value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"");
-    }
-
-    /**
-     * uploader un fichier dans le dossier racine par défaut
+     * uploader un fichier dans le dossier racine par défaut => ce n'est pas fait
      * @param file
      * @return
      * @throws Exception
@@ -1724,12 +1684,6 @@ public class ApiClient {
             });
         }
     }
-
-
-
-
-
-
 
 
 }

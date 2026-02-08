@@ -79,7 +79,10 @@
 
         <TextField fx:id="nameField"
                    promptText="Nouveau nom du dossier"
-                   style="-fx-background-radius: 6; -fx-border-radius: 6; -fx-border-color: #cccccc; -fx-padding: 8 10;"/>
+                   style="-fx-background-radius: 6;
+                        -fx-border-radius: 6;
+                        -fx-border-color: #cccccc;
+                        -fx-padding: 8 10;"/>
 
         <!-- message erreur (caché par défaut) -->
         <Label fx:id="errorLabel"
@@ -89,7 +92,10 @@
                prefWidth="370"
                wrapText="true"
                textAlignment="CENTER"
-               style="-fx-background-color: #ffe5e5; -fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-background-radius: 6;"
+               style="-fx-background-color: #ffe5e5;
+                        -fx-text-fill: #980b0b;
+                        -fx-font-weight: bold;
+                        -fx-background-radius: 6;"
                text="Erreur"/>
     </VBox>
 
@@ -102,7 +108,11 @@
                 text="Annuler"
                 cancelButton="true"
                 onAction="#handleCancel"
-                style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;">
+                style="-fx-background-color: #cccccc;
+                        -fx-text-fill: #333333;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 20;">
             <font>
                 <Font size="12"/>
             </font>
@@ -112,7 +122,12 @@
                 text="Renommer"
                 defaultButton="true"
                 onAction="#handleConfirm"
-                style="-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;">
+                style="-fx-background-color: #980b0b;
+                        -fx-text-fill: white;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 24;
+                        -fx-font-weight: bold;">
             <font>
                 <Font size="12"/>
             </font>

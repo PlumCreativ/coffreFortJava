@@ -323,6 +323,14 @@ public class MainController {
             }
         });
 
+        MenuItem shareItem = new MenuItem("Partager ce dossier");
+        shareItem.setOnAction(event -> {
+            NodeItem folder = cell.getItem();
+            if (folder != null){
+                handleShareFolder(folder);
+            }
+        });
+
         MenuItem deleteItem = new MenuItem("Supprimer ce dossier...");
         deleteItem.setOnAction(event -> {
             NodeItem folder = cell.getItem();
@@ -333,7 +341,7 @@ public class MainController {
             }
         });
 
-        menu.getItems().addAll(createInside, renameItem, new SeparatorMenuItem(), deleteItem);
+        menu.getItems().addAll(createInside, renameItem, shareItem, new SeparatorMenuItem(), deleteItem);
         return menu;
     }
 
@@ -707,7 +715,7 @@ public class MainController {
 
     // *****************************************   functions pour share  *************************
     /**
-     * Gestion de share des fichiers
+     * Gestion de share des fichiers =>ok
      */
     @FXML
     private void handleShare() {
@@ -739,19 +747,16 @@ public class MainController {
             controller.setItemName(selected.getName());
 
             //callback => quand user clique sur partage
-            controller.setOnShare(recipient -> {
-                statusLabel.setText("Partage en cours ... ");
+            controller.setOnShare(data -> {
+                statusLabel.setText("Partage en cours... ");
 
                 new Thread(() -> {
                     try{
-                        String url  = apiClient.shareFile(selected.getId(), recipient);
+                        String url  = apiClient.shareFile(selected.getId(), data);
 
                         Platform.runLater(() -> {
-                            Platform.runLater(() -> {
-                                statusLabel.setText("Lien: " + url);
-                                showShareDialog(url);
-
-                            });
+                            statusLabel.setText("Lien: " + url);
+                            showShareDialog(url);
                         });
                         System.out.println(url);
                     } catch (Exception e) {
@@ -762,7 +767,6 @@ public class MainController {
                         });
                     }
                 }).start(); //lancement du Thread
-
             });
 
             //réactivation du bouton de partage
@@ -770,6 +774,71 @@ public class MainController {
 
             dialogStage.showAndWait();
 
+        } catch (Exception e) {
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de partage "+e.getMessage());
+            shareButton.setDisable(false);
+        }
+    }
+
+    /**
+     * Gestion de share des dossiers
+     * @param folderNode
+     * @throws Exception
+     */
+    private void handleShareFolder(NodeItem folderNode){
+        if(folderNode == null) return;
+
+        try{
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/coffrefort/client/share.fxml")
+            );
+
+            VBox root =  loader.load();
+
+            //récupération du contrôleur
+            ShareController controller = loader.getController();
+
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle(("Créer un lien de partage"));
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(treeView.getScene().getWindow());
+
+            //interdire de redimensionner  la fenêtre => taille fixe
+            dialogStage.setResizable(false);
+            dialogStage.setScene(new Scene(root));
+
+            controller.setStage(dialogStage);
+            controller.setItemName(folderNode.getName());
+
+            //controller.setIsFolder(true); => indiquer que c'est un folder....
+            //désactiver allowVersions pour les dossiers
+            controller.disableVersionsOption();
+
+            //callback => quand user clique sur partage
+            //callback => quand user clique sur partage
+            controller.setOnShare(data -> {
+                statusLabel.setText("Partage du dossier en cours... ");
+
+                new Thread(() -> {
+                    try{
+                        String url  = apiClient.shareFolder(folderNode.getId(), data);
+
+                        Platform.runLater(() -> {
+                            statusLabel.setText("Lien: " + url);
+                            showShareDialog(url);
+                        });
+                        System.out.println(url);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            UIDialogs.showError("Partage", null,"Erreur " + e.getMessage());
+                            statusLabel.setText("Erreur pendant le partage du dossier");
+                        });
+                    }
+                }).start(); //lancement du Thread
+            });
+            dialogStage.showAndWait();
         } catch (Exception e) {
             e.printStackTrace();
             UIDialogs.showError("Erreur", null,"Impossible d'ouvrir la fenêtre de partage "+e.getMessage());

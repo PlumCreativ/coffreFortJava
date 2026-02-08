@@ -20,34 +20,65 @@
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.text.Text?>
 
-<GridPane fx:id="rootPane" hgap="5" minHeight="750.0" minWidth="380.0" prefHeight="750.0" prefWidth="380.0" style="-fx-background-color: #E5E5E5;" vgap="15.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.coffrefort.client.controllers.RegisterController">
+<GridPane fx:id="rootPane"
+          hgap="5"
+          minHeight="750.0"
+          minWidth="380.0"
+          prefHeight="750.0"
+          prefWidth="380.0"
+          style="-fx-background-color: #E5E5E5;"
+          vgap="15.0"
+          xmlns="http://javafx.com/javafx/25"
+          xmlns:fx="http://javafx.com/fxml/1"
+          fx:controller="com.coffrefort.client.controllers.RegisterController">
 
     <padding>
         <Insets bottom="20.0" left="40.0" right="40.0" top="30.0" />
     </padding>
 
     <columnConstraints>
-        <ColumnConstraints fillWidth="true" halignment="CENTER" hgrow="ALWAYS" minWidth="200.0" prefWidth="380.0" />
+        <ColumnConstraints fillWidth="true"
+                           halignment="CENTER"
+                           hgrow="ALWAYS"
+                           minWidth="200.0"
+                           prefWidth="380.0" />
     </columnConstraints>
 
     <children>
 
         <!-- Logo -->
-        <ImageView fitHeight="120.0" fitWidth="170.0" pickOnBounds="true" preserveRatio="true" GridPane.halignment="CENTER" GridPane.rowIndex="0">
+        <ImageView fitHeight="120.0"
+                   fitWidth="170.0"
+                   pickOnBounds="true"
+                   preserveRatio="true"
+                   GridPane.halignment="CENTER"
+                   GridPane.rowIndex="0">
             <image>
                 <Image url="@/images/Logo_CryptoVault.png" />
             </image>
         </ImageView>
 
         <!-- Titre -->
-        <Text fill="#980b0b" strokeType="OUTSIDE" strokeWidth="0.0" text="Inscription" textAlignment="CENTER" GridPane.halignment="CENTER" GridPane.rowIndex="1">
+        <Text fill="#980b0b"
+              strokeType="OUTSIDE"
+              strokeWidth="0.0"
+              text="Inscription"
+              textAlignment="CENTER"
+              GridPane.halignment="CENTER"
+              GridPane.rowIndex="1">
             <font>
                 <Font name="System Bold" size="24.0" />
             </font>
         </Text>
 
         <!-- Sous-titre -->
-        <Text fill="#666666" strokeType="OUTSIDE" strokeWidth="0.0" text="Créez votre compte sécurisé" textAlignment="CENTER" GridPane.halignment="CENTER" GridPane.rowIndex="2">
+        <Text fill="#666666"
+              strokeType="OUTSIDE"
+              strokeWidth="0.0"
+              text="Créez votre compte sécurisé"
+              textAlignment="CENTER"
+              GridPane.halignment="CENTER"
+              GridPane.rowIndex="2">
             <font>
                 <Font size="12.0" />
             </font>
@@ -305,12 +336,19 @@
                 <Insets top="5.0" />
             </GridPane.margin>
             <children>
-                <Text fill="#666666" strokeType="OUTSIDE" strokeWidth="0.0" text="Déjà inscrit ?">
+                <Text fill="#666666"
+                      strokeType="OUTSIDE"
+                      strokeWidth="0.0"
+                      text="Déjà inscrit ?">
                     <font>
                         <Font size="12.0" />
                     </font>
                 </Text>
-                <Hyperlink fx:id="loginLink1" onAction="#handleGoToLogin" style="-fx-text-fill: #980b0b; -fx-cursor: hand;" text="Se connecter">
+                <Hyperlink fx:id="loginLink1"
+                           onAction="#handleGoToLogin"
+                           style="-fx-text-fill: #980b0b;
+                                -fx-cursor: hand;"
+                           text="Se connecter">
                     <font>
                         <Font size="12.0" />
                     </font>
@@ -334,7 +372,11 @@
 <!--        </Hyperlink>-->
 
         <!-- Mentions légales en bas -->
-        <Hyperlink fx:id="mentionslégales" style="-fx-text-fill: #980b0b; -fx-cursor: hand;" text="Mentions Légales" GridPane.rowIndex="10">
+        <Hyperlink fx:id="mentionslégales"
+                   style="-fx-text-fill: #980b0b;
+                        -fx-cursor: hand;"
+                   text="Mentions Légales"
+                   GridPane.rowIndex="10">
             <font>
                 <Font size="12.0" />
             </font>

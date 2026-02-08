@@ -19,21 +19,18 @@ import java.util.function.Consumer;
 
 /**
  * Vue JavaFX construite en code (équivalent du FXML UploadDialog.fxml).
- * Le contrôleur métier (UploadDialogController) peut l'utiliser
- * en branchant les callbacks ci-dessous et en appelant les méthodes d'update.
+ * Objectif: même structure/hiérarchie que le FXML (sans customNameField car commenté dans le FXML).
  */
 public class UploadDialogView {
 
     // Root
     private final VBox root = new VBox(15);
 
-    // --- fx:id nodes (mêmes noms que dans le fxml) ---
+    // --- fx:id nodes (mêmes noms que dans le FXML) ---
     private final Button selectFileButton = new Button("📁 Choisir un fichier");
     private final VBox fileListContainer = new VBox(8);
     private final VBox selectedFilesList = new VBox(6);
     private final Label noFileLabel = new Label("Aucun fichier sélectionné");
-
-    private final TextField customNameField = new TextField();
 
     private final VBox progressContainer = new VBox(5);
     private final Label progressLabel = new Label("Upload en cours...");
@@ -65,45 +62,44 @@ public class UploadDialogView {
         root.setPadding(new Insets(20, 25, 20, 25));
 
         // =========================
-        // Header (logo + title)
+        // En-tête avec logo et titre
         // =========================
         HBox header = new HBox(15);
         header.setAlignment(Pos.CENTER_LEFT);
 
         ImageView logo = new ImageView();
         try {
-            // Chemin équivalent à: @/images/Logo_CryptoVault.png
-            logo.setImage(new Image(
-                    getClass().getResourceAsStream("/images/Logo_CryptoVault.png")
-            ));
+            logo.setImage(new Image(getClass().getResourceAsStream("/images/Logo_CryptoVault.png")));
         } catch (Exception ignored) {
-            // Si l'image n'est pas trouvée, on laisse vide sans crash
+            // pas bloquant si image manquante
         }
         logo.setFitHeight(50);
         logo.setFitWidth(65);
-        logo.setPreserveRatio(true);
         logo.setPickOnBounds(true);
+        logo.setPreserveRatio(true);
 
-        VBox titles = new VBox(2);
+        VBox headerTitles = new VBox(2);
 
         Text title = new Text("📤 Uploader des fichiers");
         title.setFill(Color.web("#980b0b"));
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 18px;");
-        title.setWrappingWidth(288);
+        title.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        title.setWrappingWidth(288.48866271972656);
 
         Text subtitle = new Text("Sélectionnez les fichiers à téléverser");
         subtitle.setFill(Color.web("#666666"));
         subtitle.setStyle("-fx-font-size: 11px;");
-        subtitle.setWrappingWidth(289);
+        subtitle.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        subtitle.setWrappingWidth(289.14794921875);
 
-        titles.getChildren().addAll(title, subtitle);
-        header.getChildren().addAll(logo, titles);
+        headerTitles.getChildren().addAll(title, subtitle);
+        header.getChildren().addAll(logo, headerTitles);
 
         Separator sepTop = new Separator();
         VBox.setMargin(sepTop, new Insets(5, 0, 5, 0));
 
         // =========================
-        // File selection main box
+        // Zone de sélection de fichiers (grand bloc blanc)
         // =========================
         VBox selectionBox = new VBox(12);
         selectionBox.setStyle(
@@ -116,12 +112,12 @@ public class UploadDialogView {
         selectionBox.setPadding(new Insets(15));
         VBox.setVgrow(selectionBox, Priority.ALWAYS);
 
-        // Select button row
+        // Bouton choisir fichier
         HBox selectRow = new HBox(15);
         selectRow.setAlignment(Pos.CENTER);
 
-        selectFileButton.setPrefSize(177, 39);
-        selectFileButton.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        selectFileButton.setPrefHeight(39.0);
+        selectFileButton.setPrefWidth(177.0);
         selectFileButton.setStyle(
                 "-fx-background-color: #980b0b; " +
                         "-fx-text-fill: white; " +
@@ -130,25 +126,25 @@ public class UploadDialogView {
                         "-fx-padding: 10 20;"
         );
         selectFileButton.setFont(Font.font(13));
-        selectFileButton.setEffect(makeShadow(0.6, 0.04, 0.04, 0.3, 8, 3.5, 1, 1));
-
-        // Placeholder Text (dans le fxml c'est un <Text /> vide)
-        Text hintText = new Text();
-        hintText.setFill(Color.web("#999999"));
-        hintText.setStyle("-fx-font-size: 12px;");
-
+        selectFileButton.setEffect(makeShadow(0.6, 0.04, 0.04, 0.3, 8.0, 3.5, 1.0, 1.0));
         selectFileButton.setOnAction(e -> triggerSelectFile());
 
-        selectRow.getChildren().addAll(selectFileButton, hintText);
+        // <Text .../> vide dans le FXML
+        Text emptyHint = new Text();
+        emptyHint.setFill(Color.web("#999999"));
+        emptyHint.setStyle("-fx-font-size: 12px;");
+
+        selectRow.getChildren().addAll(selectFileButton, emptyHint);
 
         Separator sepMid = new Separator();
         VBox.setMargin(sepMid, new Insets(5, 0, 5, 0));
 
-        // File list container
+        // Liste des fichiers sélectionnés
         Label filesLabel = new Label("Fichiers sélectionnés :");
         filesLabel.setStyle("-fx-text-fill: #333333; -fx-font-weight: bold; -fx-font-size: 12px;");
 
         selectedFilesList.setMinHeight(120);
+        selectedFilesList.setSpacing(6);
         selectedFilesList.setStyle(
                 "-fx-background-color: #f8f8f8; " +
                         "-fx-background-radius: 4; " +
@@ -162,32 +158,17 @@ public class UploadDialogView {
         noFileLabel.setAlignment(Pos.CENTER);
         noFileLabel.setMaxWidth(Double.MAX_VALUE);
         noFileLabel.setStyle("-fx-text-fill: #999999; -fx-font-style: italic; -fx-font-size: 11px;");
-        selectedFilesList.getChildren().add(noFileLabel);
 
-        fileListContainer.getChildren().addAll(filesLabel, selectedFilesList);
+        fileListContainer.setSpacing(8);
         VBox.setVgrow(fileListContainer, Priority.ALWAYS);
 
-        // Custom name section
-        VBox customNameBox = new VBox(5);
+        selectedFilesList.getChildren().add(noFileLabel);
+        fileListContainer.getChildren().addAll(filesLabel, selectedFilesList);
 
-        Label customNameLabel = new Label("Nom personnalisé (optionnel) :");
-        customNameLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 11px;");
-
-        customNameField.setPromptText("Laissez vide pour garder le nom original");
-        customNameField.setStyle(
-                "-fx-background-radius: 4; " +
-                        "-fx-border-color: #cccccc; " +
-                        "-fx-border-width: 1; " +
-                        "-fx-border-radius: 4;"
-        );
-        customNameField.setEffect(makeShadow(0.6, 0.04, 0.04, 0.15, 5, 2, 1, 1));
-
-        customNameBox.getChildren().addAll(customNameLabel, customNameField);
-
-        selectionBox.getChildren().addAll(selectRow, sepMid, fileListContainer, customNameBox);
+        selectionBox.getChildren().addAll(selectRow, sepMid, fileListContainer);
 
         // =========================
-        // Progress (hidden by default)
+        // Barre de progression (cachée par défaut)
         // =========================
         progressContainer.setManaged(false);
         progressContainer.setVisible(false);
@@ -199,20 +180,20 @@ public class UploadDialogView {
         progressLabel.setStyle("-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 12px;");
         progressPercentLabel.setStyle("-fx-text-fill: #666666; -fx-font-size: 11px;");
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Region progressSpacer = new Region();
+        HBox.setHgrow(progressSpacer, Priority.ALWAYS);
 
-        progressRow.getChildren().addAll(progressLabel, spacer, progressPercentLabel);
+        progressRow.getChildren().addAll(progressLabel, progressSpacer, progressPercentLabel);
 
         uploadProgressBar.setPrefHeight(10);
         uploadProgressBar.setMaxWidth(Double.MAX_VALUE);
         uploadProgressBar.setStyle("-fx-accent: #980b0b;");
-        uploadProgressBar.setEffect(makeShadow(0.6, 0.04, 0.04, 0.2, 5, 2, 1, 1));
+        uploadProgressBar.setEffect(makeShadow(0.6, 0.04, 0.04, 0.2, 5.0, 2.0, 1.0, 1.0));
 
         progressContainer.getChildren().addAll(progressRow, uploadProgressBar);
 
         // =========================
-        // Message label (hidden by default)
+        // Messages d'erreur ou succès (caché par défaut)
         // =========================
         messageLabel.setManaged(false);
         messageLabel.setVisible(false);
@@ -220,18 +201,15 @@ public class UploadDialogView {
         messageLabel.setStyle("-fx-padding: 10; -fx-background-radius: 4; -fx-font-size: 12px;");
 
         // =========================
-        // Action buttons
+        // Boutons d'action
         // =========================
         HBox actions = new HBox(12);
         actions.setAlignment(Pos.CENTER_RIGHT);
         VBox.setMargin(actions, new Insets(10, 0, 0, 0));
 
         cancelButton.setStyle(
-                "-fx-background-color: #cccccc; " +
-                        "-fx-text-fill: #333333; " +
-                        "-fx-background-radius: 4; " +
-                        "-fx-cursor: hand; " +
-                        "-fx-padding: 8 20;"
+                "-fx-background-color: #cccccc; -fx-text-fill: #333333; " +
+                        "-fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;"
         );
         cancelButton.setFont(Font.font(12));
         cancelButton.setOnAction(e -> triggerCancel());
@@ -239,20 +217,19 @@ public class UploadDialogView {
         uploadButton.setDefaultButton(true);
         uploadButton.setDisable(true);
         uploadButton.setStyle(
-                "-fx-background-color: #980b0b; " +
-                        "-fx-text-fill: white; " +
-                        "-fx-background-radius: 4; " +
-                        "-fx-cursor: hand; " +
-                        "-fx-padding: 8 24; " +
+                "-fx-background-color: #980b0b; -fx-text-fill: white; " +
+                        "-fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; " +
                         "-fx-font-weight: bold;"
         );
         uploadButton.setFont(Font.font(12));
-        uploadButton.setEffect(makeShadow(0.6, 0.04, 0.04, 0.4, 10, 4.5, 2, 2));
+        uploadButton.setEffect(makeShadow(0.6, 0.04, 0.04, 0.4, 10.0, 4.5, 2.0, 2.0));
         uploadButton.setOnAction(e -> triggerUpload());
 
         actions.getChildren().addAll(cancelButton, uploadButton);
 
-        // Add to root
+        // =========================
+        // Ajout au root (même ordre que FXML)
+        // =========================
         root.getChildren().addAll(
                 header,
                 sepTop,
@@ -262,7 +239,7 @@ public class UploadDialogView {
                 actions
         );
 
-        // Focus behavior like your RegisterView
+        // Focus behavior
         root.setFocusTraversable(true);
         root.setOnMouseClicked(event -> {
             Object target = event.getTarget();
@@ -305,7 +282,7 @@ public class UploadDialogView {
     }
 
     // =========================
-    // Public API (comme RegisterView)
+    // Public API
     // =========================
 
     public Node getRoot() {
@@ -324,11 +301,6 @@ public class UploadDialogView {
         this.onCancel = onCancel;
     }
 
-    public String getCustomName() {
-        String v = customNameField.getText();
-        return v == null ? "" : v.trim();
-    }
-
     public List<File> getSelectedFiles() {
         return new ArrayList<>(selectedFiles);
     }
@@ -337,21 +309,18 @@ public class UploadDialogView {
     // File list management
     // =========================
 
-    /** Remplace la liste entière (ex: après FileChooser multi-select). */
     public void setSelectedFiles(List<File> files) {
         selectedFiles.clear();
         if (files != null) selectedFiles.addAll(files);
         refreshFileList();
     }
 
-    /** Ajoute un fichier à la liste. */
     public void addSelectedFile(File file) {
         if (file == null) return;
         selectedFiles.add(file);
         refreshFileList();
     }
 
-    /** Supprime un fichier à la liste. */
     public void removeSelectedFile(File file) {
         selectedFiles.remove(file);
         refreshFileList();
@@ -400,13 +369,10 @@ public class UploadDialogView {
     // Progress management
     // =========================
 
-    /**
-     *
-     * @param show
-     */
     public void showProgress(boolean show) {
         progressContainer.setVisible(show);
         progressContainer.setManaged(show);
+
         if (!show) {
             uploadProgressBar.setProgress(0);
             progressPercentLabel.setText("0%");
@@ -414,14 +380,11 @@ public class UploadDialogView {
         }
     }
 
-    /**
-     * progress entre 0.0 et 1.0
-     */
+    /** progress entre 0.0 et 1.0 */
     public void updateProgress(double progress) {
-        if (progress < 0) progress = 0;
-        if (progress > 1) progress = 1;
-        uploadProgressBar.setProgress(progress);
-        int percent = (int) Math.round(progress * 100);
+        double p = Math.max(0, Math.min(1, progress));
+        uploadProgressBar.setProgress(p);
+        int percent = (int) Math.round(p * 100);
         progressPercentLabel.setText(percent + "%");
     }
 

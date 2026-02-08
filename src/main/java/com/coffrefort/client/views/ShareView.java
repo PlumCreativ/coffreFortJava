@@ -6,23 +6,31 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 
 import java.util.function.Consumer;
 
 public class ShareView {
 
-    private final VBox root = new VBox();
+    private final VBox root = new VBox(15);
+
     private final Label itemNameLabel = new Label("NomDeLElement");
+
     private final TextField recipientField = new TextField();
     private final TextField expiresField = new TextField();
     private final TextField maxUsesField = new TextField();
-    private final CheckBox allowVersionsCheckBox = new CheckBox("Autoriser le téléchargement de versions spécifiques");
-    private final Label errorLabel = new Label();
+
+    private final CheckBox allowVersionsCheckBox =
+            new CheckBox("Autoriser le téléchargement de versions spécifiques");
+
+    private final Label errorLabel = new Label("");
+
     private final Button cancelButton = new Button("Annuler");
     private final Button shareButton = new Button("Partager");
 
@@ -34,37 +42,48 @@ public class ShareView {
     }
 
     private void buildUi() {
-        root.setPrefSize(460, 350);
+        root.setPrefSize(460, 500);
         root.setSpacing(15);
         root.setStyle("-fx-background-color: #E5E5E5; -fx-background-radius: 8;");
         root.setPadding(new Insets(20, 25, 20, 25));
 
-        // ========== EN-TÊTE ==========
-        HBox header = buildHeader();
-        root.getChildren().add(header);
+        // ===== En-tête =====
+        root.getChildren().add(buildHeader());
 
         // Séparateur
-        Separator separator = new Separator();
-        VBox.setMargin(separator, new Insets(5, 0, 10, 0));
-        root.getChildren().add(separator);
+        Separator sep = new Separator();
+        VBox.setMargin(sep, new Insets(10, 0, 5, 0));
+        root.getChildren().add(sep);
 
-        // ========== ZONE DE MESSAGE ==========
-        VBox messageBox = buildMessageBox();
-        root.getChildren().add(messageBox);
+        // ===== Zone message =====
+        root.getChildren().add(buildMessageBox());
+
+        // ===== Options de partage (bloc dédié comme dans le FXML) =====
+        root.getChildren().add(buildAllowVersionsBox());
 
         // Spacer
         Region spacer = new Region();
-        VBox.setVgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(spacer, Priority.ALWAYS);
         root.getChildren().add(spacer);
 
-        // ========== BOUTONS D'ACTION ==========
-        HBox actionsBox = buildActionsBox();
-        VBox.setMargin(actionsBox, new Insets(0, 0, 15, 0));
-        root.getChildren().add(actionsBox);
+        // ===== Actions =====
+        HBox actions = buildActionsBox();
+        VBox.setMargin(actions, new Insets(0, 0, 15, 0));
+        root.getChildren().add(actions);
+
+        // Focus behavior
+        root.setFocusTraversable(true);
+        root.setOnMouseClicked(e -> {
+            Object t = e.getTarget();
+            if (!(t instanceof TextField)) {
+                root.requestFocus();
+            }
+        });
     }
 
     private HBox buildHeader() {
         HBox header = new HBox(12);
+        header.setAlignment(Pos.CENTER_LEFT);
 
         // Bande rouge avec icône
         VBox iconBox = new VBox();
@@ -82,12 +101,10 @@ public class ShareView {
         // Titre + sous-titre
         VBox titleBox = new VBox(4);
         titleBox.setAlignment(Pos.CENTER_LEFT);
-        titleBox.setPrefSize(348, 55);
 
         Text title = new Text("Partager");
         title.setFill(Color.web("#980b0b"));
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 18px;");
-        title.setWrappingWidth(139.97);
 
         Text subtitle = new Text("Choisissez un destinataire");
         subtitle.setFill(Color.web("#666666"));
@@ -100,149 +117,189 @@ public class ShareView {
     }
 
     private VBox buildMessageBox() {
-        VBox messageBox = new VBox(10);
+        VBox box = new VBox(10);
 
-        // Label d'introduction
         Label introLabel = new Label("Vous êtes sur le point de partager l'élément suivant :");
         introLabel.setAlignment(Pos.CENTER);
         introLabel.setPrefWidth(410);
         introLabel.setWrapText(true);
-        introLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        introLabel.setTextAlignment(TextAlignment.CENTER);
         introLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 13px;");
 
-        // Nom de l'élément
         itemNameLabel.setAlignment(Pos.CENTER);
         itemNameLabel.setPrefWidth(410);
         itemNameLabel.setWrapText(true);
-        itemNameLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        itemNameLabel.setTextAlignment(TextAlignment.CENTER);
         itemNameLabel.setStyle("-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 13px;");
 
-        // Champ destinataire
+        // Destinataire
         VBox recipientBox = new VBox(6);
+
         Label recipientLabel = new Label("Destinataire (email ou nom d'utilisateur)");
+        VBox.setMargin(recipientLabel, new Insets(4, 0, 0, 0));
         recipientLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 12px; -fx-font-weight: bold;");
+
         recipientField.setPromptText("ex: alice@domaine.com");
-        recipientField.setStyle("-fx-background-radius: 6; -fx-padding: 8 10; -fx-border-radius: 6; -fx-border-color: #C8C8C8;");
+        recipientField.setStyle(
+                "-fx-background-radius: 6; -fx-padding: 8 10; " +
+                        "-fx-border-radius: 6; -fx-border-color: #C8C8C8;"
+        );
+
         recipientBox.getChildren().addAll(recipientLabel, recipientField);
 
-        // Champs Expiration et Max Uses
-        HBox optionsBox = buildOptionsBox();
+        // Options expiration / max uses
+        HBox optionsRow = new HBox(12);
+        optionsRow.getChildren().addAll(buildExpiresBox(), buildMaxUsesBox());
 
-        // Label d'erreur
+        // Erreur
         errorLabel.setManaged(false);
         errorLabel.setVisible(false);
         errorLabel.setWrapText(true);
         errorLabel.setStyle("-fx-text-fill: #980b0b; -fx-font-size: 12px; -fx-font-weight: bold;");
 
-        messageBox.getChildren().addAll(introLabel, itemNameLabel, recipientBox, optionsBox, errorLabel);
-        return messageBox;
+        box.getChildren().addAll(introLabel, itemNameLabel, recipientBox, optionsRow, errorLabel);
+        return box;
     }
 
-    private HBox buildOptionsBox() {
-        HBox optionsBox = new HBox(12);
-
-        // Expiration
+    private VBox buildExpiresBox() {
         VBox expiresBox = new VBox(6);
-        HBox.setHgrow(expiresBox, javafx.scene.layout.Priority.ALWAYS);
+        expiresBox.setPrefWidth(195);
+        HBox.setHgrow(expiresBox, Priority.ALWAYS);
+
         Label expiresLabel = new Label("Expiration (jours)");
+        VBox.setMargin(expiresLabel, new Insets(4, 0, 0, 0));
+        expiresLabel.setAlignment(Pos.CENTER);
+        expiresLabel.setPrefWidth(186);
         expiresLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 12px; -fx-font-weight: bold;");
-        expiresField.setPromptText("ex: 7 (vide = jamais)");
-        expiresField.setStyle("-fx-background-radius: 6; -fx-padding: 8 10; -fx-border-radius: 6; -fx-border-color: #C8C8C8;");
+
+        expiresField.setAlignment(Pos.CENTER);
+        expiresField.setPromptText("ex: 7");
+        expiresField.setPrefSize(85, 36);
+        expiresField.setStyle(
+                "-fx-background-radius: 6; -fx-padding: 8 10; " +
+                        "-fx-border-radius: 6; -fx-border-color: #C8C8C8;"
+        );
+        VBox.setMargin(expiresField, new Insets(0, 0, 0, 50));
+
         expiresBox.getChildren().addAll(expiresLabel, expiresField);
-
-        // Max Uses
-        VBox maxUsesBox = new VBox(6);
-        HBox.setHgrow(maxUsesBox, javafx.scene.layout.Priority.ALWAYS);
-        Label maxUsesLabel = new Label("Max téléchargements");
-        maxUsesLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 12px; -fx-font-weight: bold;");
-        maxUsesField.setPromptText("ex: 3 (vide = illimité)");
-        maxUsesField.setStyle("-fx-background-radius: 6; -fx-padding: 8 10; -fx-border-radius: 6; -fx-border-color: #C8C8C8;");
-        maxUsesBox.getChildren().addAll(maxUsesLabel, maxUsesField);
-
-        // Options avancées
-        VBox advancedBox = buildAdvancedOptionsBox();
-
-        optionsBox.getChildren().addAll(expiresBox, maxUsesBox, advancedBox);
-        return optionsBox;
+        return expiresBox;
     }
 
-    private VBox buildAdvancedOptionsBox() {
-        VBox advancedBox = new VBox(6);
+    private VBox buildMaxUsesBox() {
+        VBox maxUsesBox = new VBox(6);
+        maxUsesBox.setPrefWidth(110);
+        HBox.setHgrow(maxUsesBox, Priority.ALWAYS);
+
+        Label maxUsesLabel = new Label("Nombre maximum d'utilisations");
+        VBox.setMargin(maxUsesLabel, new Insets(4, 0, 0, 0));
+        maxUsesLabel.setAlignment(Pos.CENTER);
+        maxUsesLabel.setPrefWidth(215);
+        maxUsesLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 12px; -fx-font-weight: bold;");
+
+        maxUsesField.setAlignment(Pos.CENTER);
+        maxUsesField.setPromptText("ex: 3");
+        maxUsesField.setPrefSize(85, 36);
+        maxUsesField.setStyle(
+                "-fx-background-radius: 6; -fx-padding: 8 10; " +
+                        "-fx-border-radius: 6; -fx-border-color: #C8C8C8;"
+        );
+        VBox.setMargin(maxUsesField, new Insets(0, 0, 0, 50));
+
+        maxUsesBox.getChildren().addAll(maxUsesLabel, maxUsesField);
+        return maxUsesBox;
+    }
+
+    private VBox buildAllowVersionsBox() {
+        VBox allowVersionsBox = new VBox(6);
+        VBox.setMargin(allowVersionsBox, new Insets(6, 0, 0, 0));
 
         Label optionsLabel = new Label("Options de partage");
         optionsLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 12px; -fx-font-weight: bold;");
 
         allowVersionsCheckBox.setStyle("-fx-text-fill: #333333; -fx-font-size: 12px;");
+        allowVersionsCheckBox.setPrefWidth(394);
 
         Label helpLabel = new Label("Si activé, le destinataire pourra choisir une version précise du fichier.");
         helpLabel.setWrapText(true);
         helpLabel.setStyle("-fx-text-fill: #666666; -fx-font-size: 10px; -fx-padding: 0 0 0 25;");
 
-        advancedBox.getChildren().addAll(optionsLabel, allowVersionsCheckBox, helpLabel);
-        return advancedBox;
+        allowVersionsBox.getChildren().addAll(optionsLabel, allowVersionsCheckBox, helpLabel);
+        return allowVersionsBox;
     }
 
     private HBox buildActionsBox() {
-        HBox actionsBox = new HBox(12);
-        actionsBox.setAlignment(Pos.CENTER);
+        HBox actions = new HBox(12);
+        actions.setAlignment(Pos.CENTER);
 
-        // Bouton Annuler
         cancelButton.setCancelButton(true);
-        cancelButton.setStyle("-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;");
         cancelButton.setFont(Font.font(12));
+        cancelButton.setStyle(
+                "-fx-background-color: #cccccc; -fx-text-fill: #333333; " +
+                        "-fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;"
+        );
         cancelButton.setOnAction(e -> triggerCancel());
 
-        // Bouton Partager
         shareButton.setDefaultButton(true);
-        shareButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;");
         shareButton.setFont(Font.font(12));
+        shareButton.setStyle(
+                "-fx-background-color: #980b0b; -fx-text-fill: white; " +
+                        "-fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; " +
+                        "-fx-font-weight: bold;"
+        );
         shareButton.setOnAction(e -> triggerShare());
 
-        DropShadow shadow = new DropShadow(10.0, Color.rgb(13, 64, 140, 0.35));
-        shareButton.setEffect(shadow);
+        DropShadow ds = new DropShadow();
+        ds.setRadius(10.0);
+        ds.setColor(Color.color(0.05, 0.25, 0.55, 0.35));
+        shareButton.setEffect(ds);
 
-        actionsBox.getChildren().addAll(cancelButton, shareButton);
-        return actionsBox;
+        actions.getChildren().addAll(cancelButton, shareButton);
+        return actions;
     }
 
-    // ========== TRIGGERS ==========
+    // ===== Triggers =====
 
     private void triggerShare() {
-        String recipient = recipientField.getText();
-        if (recipient == null || recipient.trim().isEmpty()) {
+        hideError();
+
+        String recipient = getRecipient();
+        if (recipient.isEmpty()) {
             showError("Veuillez renseigner un destinataire.");
             return;
         }
 
-        Integer maxUses = parseIntegerOrNull(maxUsesField.getText());
-        if (maxUses != null && maxUses < 1) {
-            showError("Max uses doit être >= 1 ou vide (illimité)");
+        Integer expiresDays = parsePositiveIntOrNull(expiresField.getText());
+        if (expiresField.getText() != null && !expiresField.getText().trim().isEmpty() && expiresDays == null) {
+            showError("Expiration invalide (nombre attendu).");
             return;
         }
 
-        Integer expiresDays = parseIntegerOrNull(expiresField.getText());
-        if (expiresDays != null && expiresDays < 1) {
-            showError("Expiration doit être >= 1 ou vide (jamais)");
+        Integer maxUses = parsePositiveIntOrNull(maxUsesField.getText());
+        if (maxUsesField.getText() != null && !maxUsesField.getText().trim().isEmpty() && maxUses == null) {
+            showError("Nombre d'utilisations invalide (nombre attendu).");
             return;
         }
 
-        boolean allowVersions = allowVersionsCheckBox.isSelected();
-
-        hideError();
+        ShareData data = new ShareData(
+                recipient,
+                expiresDays,
+                maxUses,
+                allowVersionsCheckBox.isSelected()
+        );
 
         if (onShare != null) {
-            ShareData data = new ShareData(recipient.trim(), maxUses, expiresDays, allowVersions);
             onShare.accept(data);
         }
     }
 
     private void triggerCancel() {
+        hideError();
         if (onCancel != null) {
             onCancel.run();
         }
     }
 
-    // ========== SETTERS CALLBACKS ==========
+    // ===== API publique =====
 
     public void setOnShare(Consumer<ShareData> onShare) {
         this.onShare = onShare;
@@ -252,14 +309,21 @@ public class ShareView {
         this.onCancel = onCancel;
     }
 
-    // ========== MÉTHODES PUBLIQUES ==========
+    public Node getRoot() {
+        return root;
+    }
 
     public void setItemName(String name) {
         itemNameLabel.setText(name != null ? name : "");
     }
 
+    public String getRecipient() {
+        String v = recipientField.getText();
+        return v == null ? "" : v.trim();
+    }
+
     public void showError(String message) {
-        errorLabel.setText(message);
+        errorLabel.setText(message == null ? "" : message);
         errorLabel.setVisible(true);
         errorLabel.setManaged(true);
     }
@@ -270,35 +334,29 @@ public class ShareView {
         errorLabel.setManaged(false);
     }
 
-    public Node getRoot() {
-        return root;
-    }
-
-    // ========== UTILITAIRES ==========
-
-    private Integer parseIntegerOrNull(String text) {
-        if (text == null || text.trim().isEmpty()) {
-            return null;
-        }
+    private Integer parsePositiveIntOrNull(String text) {
+        if (text == null) return null;
+        String t = text.trim();
+        if (t.isEmpty()) return null;
         try {
-            return Integer.parseInt(text.trim());
+            int v = Integer.parseInt(t);
+            return v >= 1 ? v : null;
         } catch (NumberFormatException e) {
             return null;
         }
     }
 
-    // ========== CLASSE INTERNE POUR LES DONNÉES ==========
-
+    // ===== DTO interne (comme avant) =====
     public static class ShareData {
         private final String recipient;
-        private final Integer maxUses;
         private final Integer expiresDays;
+        private final Integer maxUses;
         private final boolean allowVersions;
 
-        public ShareData(String recipient, Integer maxUses, Integer expiresDays, boolean allowVersions) {
+        public ShareData(String recipient, Integer expiresDays, Integer maxUses, boolean allowVersions) {
             this.recipient = recipient;
-            this.maxUses = maxUses;
             this.expiresDays = expiresDays;
+            this.maxUses = maxUses;
             this.allowVersions = allowVersions;
         }
 
@@ -306,24 +364,16 @@ public class ShareView {
             return recipient;
         }
 
-        public Integer getMaxUses() {
-            return maxUses;
-        }
-
         public Integer getExpiresDays() {
             return expiresDays;
         }
 
-        public boolean isAllowVersions() {
-            return allowVersions;
+        public Integer getMaxUses() {
+            return maxUses;
         }
 
-        @Override
-        public String toString() {
-            return recipient + "|"
-                    + (maxUses != null ? maxUses : "null") + "|"
-                    + (expiresDays != null ? expiresDays : "null") + "|"
-                    + allowVersions;
+        public boolean isAllowVersions() {
+            return allowVersions;
         }
     }
 }

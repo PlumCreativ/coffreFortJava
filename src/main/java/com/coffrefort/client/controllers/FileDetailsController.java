@@ -322,7 +322,7 @@ public class FileDetailsController {
      */
     private void setupVersionTable(){
 
-        //colonne versin
+        //colonne version
         versionCol.setCellValueFactory(new PropertyValueFactory<>("version"));
 
         //taille formatée

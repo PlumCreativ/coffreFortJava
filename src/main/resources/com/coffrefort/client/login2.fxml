@@ -167,7 +167,9 @@
                 onAction="#handleLogin"
                 prefHeight="29.0"
                 prefWidth="115.0"
-                style="-fx-background-color: #980b0b; -fx-background-radius: 4; -fx-cursor: hand;"
+                style="-fx-background-color: #980b0b;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;"
                 text="Se connecter"
                 textFill="WHITE"
                 GridPane.hgrow="ALWAYS"
@@ -208,7 +210,7 @@
         </HBox>
 
         <!-- Mentions légales en bas -->
-        <Hyperlink fx:id="mentionslégales"
+        <Hyperlink fx:id="mentionsLegales"
                    style="-fx-text-fill: #980b0b; -fx-cursor: hand;"
                    text="Mentions Légales" GridPane.rowIndex="12">
             <font>
@@ -218,9 +220,6 @@
                 <Insets bottom="20.0" />
             </GridPane.margin>
         </Hyperlink>
-
-
-
 
     </children>
    <rowConstraints>

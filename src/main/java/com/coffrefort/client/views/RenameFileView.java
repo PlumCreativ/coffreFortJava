@@ -9,24 +9,31 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 
 import java.util.function.Consumer;
 
 public class RenameFileView {
 
-    private final VBox root = new VBox();
+    private final VBox root = new VBox(15);
+
     private final Label currentNameLabel = new Label("NomDuFichier.ext");
     private final TextField nameField = new TextField();
+
+    private final Label extensionLabel = new Label(".pdf");
+
     private final Label errorLabel = new Label("Erreur");
+
     private final Button cancelButton = new Button("Annuler");
     private final Button confirmButton = new Button("Renommer");
 
-    private Consumer<String> onConfirm;
+    private Consumer<String> onConfirm; // retourne le nouveau nom SANS extension
     private Runnable onCancel;
 
     public RenameFileView() {
@@ -34,7 +41,7 @@ public class RenameFileView {
     }
 
     private void buildUi() {
-        root.setPrefSize(420, 240);
+        root.setPrefSize(420, 300);
         root.setSpacing(15);
         root.setStyle("-fx-background-color: #E5E5E5; -fx-background-radius: 8;");
         root.setPadding(new Insets(20, 25, 20, 25));
@@ -45,27 +52,52 @@ public class RenameFileView {
 
         // Séparateur
         Separator separator = new Separator();
-        VBox.setMargin(separator, new Insets(5, 0, 10, 0));
+        VBox.setMargin(separator, new Insets(10, 0, 5, 0));
         root.getChildren().add(separator);
 
-        // ========== ZONE DE MESSAGE + INPUT ==========
-        VBox messageBox = buildMessageBox();
-        root.getChildren().add(messageBox);
+        // ========== CONTENU ==========
+        VBox currentBox = buildCurrentNameBox();
+        VBox newNameBox = buildNewNameBox();
+        root.getChildren().addAll(currentBox, newNameBox);
+
+        // Error label (comme FXML)
+        errorLabel.setVisible(false);
+        errorLabel.setManaged(false);
+        errorLabel.setAlignment(Pos.CENTER);
+        errorLabel.setPrefWidth(370);
+        errorLabel.setWrapText(true);
+        errorLabel.setTextAlignment(TextAlignment.CENTER);
+        errorLabel.setStyle(
+                "-fx-background-color: #ffe5e5;" +
+                        "-fx-text-fill: #980b0b;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-background-radius: 6;"
+        );
+        root.getChildren().add(errorLabel);
 
         // Spacer
         Region spacer = new Region();
-        VBox.setVgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(spacer, Priority.ALWAYS);
         root.getChildren().add(spacer);
 
-        // ========== BOUTONS D'ACTION ==========
+        // ========== ACTIONS ==========
         HBox actionsBox = buildActionsBox();
         root.getChildren().add(actionsBox);
+
+        // Focus behavior
+        root.setFocusTraversable(true);
+        root.setOnMouseClicked(e -> {
+            Object t = e.getTarget();
+            if (!(t instanceof TextField)) {
+                root.requestFocus();
+            }
+        });
     }
 
     private HBox buildHeader() {
         HBox header = new HBox(12);
+        header.setAlignment(Pos.CENTER_LEFT);
 
-        // Bande rouge avec icône
         VBox iconBox = new VBox();
         iconBox.setAlignment(Pos.CENTER);
         iconBox.setPrefWidth(48);
@@ -77,7 +109,6 @@ public class RenameFileView {
         icon.setStyle("-fx-font-size: 24px;");
         iconBox.getChildren().add(icon);
 
-        // Titre + sous-titre
         VBox titleBox = new VBox(4);
         titleBox.setAlignment(Pos.CENTER_LEFT);
 
@@ -95,60 +126,73 @@ public class RenameFileView {
         return header;
     }
 
-    private VBox buildMessageBox() {
-        VBox messageBox = new VBox(10);
+    private VBox buildCurrentNameBox() {
+        VBox box = new VBox(5);
 
-        // Label "Nom actuel :"
-        Label currentLabel = new Label("Nom actuel :");
-        currentLabel.setAlignment(Pos.CENTER);
-        currentLabel.setPrefWidth(370);
-        currentLabel.setWrapText(true);
-        currentLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-        currentLabel.setStyle("-fx-text-fill: #333333; -fx-font-size: 13px;");
+        Label lbl = new Label("Nom actuel :");
+        lbl.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px;");
 
-        // Nom actuel du fichier
-        currentNameLabel.setAlignment(Pos.CENTER);
-        currentNameLabel.setPrefWidth(370);
         currentNameLabel.setWrapText(true);
-        currentNameLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-        currentNameLabel.setStyle("-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 13px;");
+        currentNameLabel.setStyle("-fx-text-fill: #333333; -fx-font-weight: bold;");
 
-        // Champ de saisie
-        nameField.setPromptText("Nouveau nom du fichier");
-        nameField.setStyle("-fx-background-radius: 6; -fx-border-radius: 6; -fx-border-color: #cccccc; -fx-padding: 8 10;");
+        box.getChildren().addAll(lbl, currentNameLabel);
+        return box;
+    }
+
+    private VBox buildNewNameBox() {
+        VBox box = new VBox(5);
+
+        Label lbl = new Label("Nouveau nom (sans extension) :");
+        lbl.setStyle("-fx-text-fill: #666666; -fx-font-size: 12px;");
+
+        HBox row = new HBox(5);
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        nameField.setPromptText("Entrez le nouveau nom");
+        nameField.setStyle("-fx-font-size: 13px;");
+        HBox.setHgrow(nameField, Priority.ALWAYS);
         nameField.setOnAction(e -> triggerConfirm());
 
-        // Label d'erreur (caché par défaut)
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
-        errorLabel.setAlignment(Pos.CENTER);
-        errorLabel.setPrefWidth(370);
-        errorLabel.setWrapText(true);
-        errorLabel.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-        errorLabel.setStyle("-fx-background-color: #ffe5e5; -fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-padding: 8; -fx-background-radius: 6;");
+        extensionLabel.setText(".pdf");
+        extensionLabel.setStyle("-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 13px;");
 
-        messageBox.getChildren().addAll(currentLabel, currentNameLabel, nameField, errorLabel);
-        return messageBox;
+        row.getChildren().addAll(nameField, extensionLabel);
+        box.getChildren().addAll(lbl, row);
+        return box;
     }
 
     private HBox buildActionsBox() {
         HBox actionsBox = new HBox(12);
         actionsBox.setAlignment(Pos.CENTER);
 
-        // Bouton Annuler
         cancelButton.setCancelButton(true);
-        cancelButton.setStyle("-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;");
         cancelButton.setFont(Font.font(12));
+        cancelButton.setStyle(
+                "-fx-background-color: #cccccc;" +
+                        "-fx-text-fill: #333333;" +
+                        "-fx-background-radius: 4;" +
+                        "-fx-cursor: hand;" +
+                        "-fx-padding: 8 20;"
+        );
         cancelButton.setOnAction(e -> triggerCancel());
 
-        // Bouton Renommer
         confirmButton.setDefaultButton(true);
-        confirmButton.setStyle("-fx-background-color: #980b0b; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;");
         confirmButton.setFont(Font.font(12));
-        confirmButton.setOnAction(e -> triggerConfirm());
+        confirmButton.setStyle(
+                "-fx-background-color: #980b0b;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-background-radius: 4;" +
+                        "-fx-cursor: hand;" +
+                        "-fx-padding: 8 24;" +
+                        "-fx-font-weight: bold;"
+        );
 
-        DropShadow shadow = new DropShadow(10.0, Color.rgb(153, 11, 11, 0.35));
+        DropShadow shadow = new DropShadow();
+        shadow.setRadius(10.0);
+        shadow.setColor(Color.color(0.60, 0.05, 0.05, 0.35));
         confirmButton.setEffect(shadow);
+
+        confirmButton.setOnAction(e -> triggerConfirm());
 
         actionsBox.getChildren().addAll(cancelButton, confirmButton);
         return actionsBox;
@@ -157,24 +201,25 @@ public class RenameFileView {
     // ========== TRIGGERS ==========
 
     private void triggerConfirm() {
-        String newName = nameField.getText();
-        if (newName == null || newName.trim().isEmpty()) {
+        String newName = getNewBaseName();
+        if (newName.isEmpty()) {
             showError("Le nom ne peut pas être vide.");
             return;
         }
         hideError();
         if (onConfirm != null) {
-            onConfirm.accept(newName.trim());
+            onConfirm.accept(newName);
         }
     }
 
     private void triggerCancel() {
+        hideError();
         if (onCancel != null) {
             onCancel.run();
         }
     }
 
-    // ========== SETTERS CALLBACKS ==========
+    // ========== API publique ==========
 
     public void setOnConfirm(Consumer<String> onConfirm) {
         this.onConfirm = onConfirm;
@@ -184,15 +229,31 @@ public class RenameFileView {
         this.onCancel = onCancel;
     }
 
-    // ========== MÉTHODES PUBLIQUES ==========
-
     public void setCurrentName(String name) {
         currentNameLabel.setText(name != null ? name : "");
-        nameField.setText(name); // Pré-remplir le champ
+    }
+
+    /** Permet d'afficher l'extension (.pdf, .txt, etc.) */
+    public void setExtension(String ext) {
+        if (ext == null || ext.isBlank()) {
+            extensionLabel.setText("");
+        } else {
+            extensionLabel.setText(ext.startsWith(".") ? ext : "." + ext);
+        }
+    }
+
+    /** Remplit le champ du nouveau nom (sans extension). */
+    public void setNewBaseName(String baseName) {
+        nameField.setText(baseName == null ? "" : baseName);
+    }
+
+    public String getNewBaseName() {
+        String v = nameField.getText();
+        return v == null ? "" : v.trim();
     }
 
     public void showError(String message) {
-        errorLabel.setText(message);
+        errorLabel.setText(message == null ? "" : message);
         errorLabel.setVisible(true);
         errorLabel.setManaged(true);
     }

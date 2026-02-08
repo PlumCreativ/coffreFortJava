@@ -80,7 +80,9 @@
                prefWidth="370"
                wrapText="true"
                textAlignment="CENTER"
-               style="-fx-text-fill: #980b0b; -fx-font-weight: bold; -fx-font-size: 13px;"
+               style="-fx-text-fill: #980b0b;
+                    -fx-font-weight: bold;
+                    -fx-font-size: 13px;"
                text="NomDuDossier.ext"/>
 
         <Label alignment="CENTER"
@@ -100,7 +102,11 @@
                 text="Annuler"
                 cancelButton="true"
                 onAction="#handleCancel"
-                style="-fx-background-color: #cccccc; -fx-text-fill: #333333; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 20;">
+                style="-fx-background-color: #cccccc;
+                        -fx-text-fill: #333333;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 20;">
             <font>
                 <Font size="12"/>
             </font>
@@ -110,7 +116,12 @@
                 text="Supprimer"
                 defaultButton="true"
                 onAction="#handleConfirm"
-                style="-fx-background-color: #d9534f; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8 24; -fx-font-weight: bold;">
+                style="-fx-background-color: #d9534f;
+                        -fx-text-fill: white;
+                        -fx-background-radius: 4;
+                        -fx-cursor: hand;
+                        -fx-padding: 8 24;
+                        -fx-font-weight: bold;">
             <font>
                 <Font size="12"/>
             </font>

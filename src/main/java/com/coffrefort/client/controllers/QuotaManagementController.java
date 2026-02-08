@@ -2,6 +2,7 @@ package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.model.UserQuota;
+import com.coffrefort.client.model.VersionEntry;
 import com.coffrefort.client.util.FileUtils;
 import com.coffrefort.client.util.UIDialogs;
 import javafx.application.Platform;
@@ -43,19 +44,8 @@ public class QuotaManagementController {
     @FXML
     private void initialize() {
 
-        //config des colonnes
-        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
-        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
-        quotaUsedCol.setCellValueFactory(new PropertyValueFactory<>("quotaUsed"));
-        quotaMaxCol.setCellValueFactory(new PropertyValueFactory<>("quotaMax"));
-        percentCol.setCellValueFactory(new PropertyValueFactory<>("percent"));
-        roleCol.setCellValueFactory(new PropertyValueFactory<>("role"));
-
-        centerColumn(idCol);
-        centerColumn(quotaUsedCol);
-        centerColumn(quotaMaxCol);
-        centerColumn(percentCol);
-        centerColumn(roleCol);
+        //Table setup
+        setupUsersTable();
 
         usersTable.setItems(userList);
 
@@ -65,12 +55,12 @@ public class QuotaManagementController {
             modifyQuotaButton.setDisable(newValue == null);
         });
 
-        //double clic pour modifier
-        usersTable.setOnMouseClicked(event -> {
-            if (event.getClickCount() == 2 && usersTable.getSelectionModel().getSelectedItem() != null) {
-                handleModifyQuota();
-            }
-        });
+        //double clic pour modifier le quota => si ca marche avec l'autre il faut supprimer ça
+//        usersTable.setOnMouseClicked(event -> {
+//            if (event.getClickCount() == 2 && usersTable.getSelectionModel().getSelectedItem() != null) {
+//                handleModifyQuota();
+//            }
+//        });
     }
 
     public void setApiClient(ApiClient apiClient) {
@@ -100,6 +90,64 @@ public class QuotaManagementController {
                 setAlignment(Pos.CENTER);
             }
         });
+    }
+
+    /**
+     * Configure les colonnes de la table des users et le double-clic pour modifier le quota
+     */
+    private void setupUsersTable(){
+        //config des colonnes
+        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
+        quotaUsedCol.setCellValueFactory(new PropertyValueFactory<>("quotaUsed"));
+        quotaMaxCol.setCellValueFactory(new PropertyValueFactory<>("quotaMax"));
+        percentCol.setCellValueFactory(new PropertyValueFactory<>("percent"));
+        roleCol.setCellValueFactory(new PropertyValueFactory<>("role"));
+
+        centerColumn(idCol);
+        centerColumn(quotaUsedCol);
+        centerColumn(quotaMaxCol);
+        centerColumn(percentCol);
+        centerColumn(roleCol);
+
+        //clique sur la ligne
+        usersTable.setRowFactory(tv -> {
+            TableRow<UserQuota> row = new TableRow<>();
+
+            //menu contextuel par ligne
+            ContextMenu contextMenu = new ContextMenu();
+
+            MenuItem deleteUser = new MenuItem("Supprimer cet utilisateur...");
+            deleteUser.setOnAction(e -> {
+                UserQuota user = row.getItem();
+                if (user != null) {
+                    usersTable.getSelectionModel().select(user);
+                    handleDeleteUser();
+                }
+            });
+
+            contextMenu.getItems().addAll(deleteUser);
+
+            //affichage le menu => que si la ligne n'est pas vide
+            row.contextMenuProperty().bind(
+                    javafx.beans.binding.Bindings.when(row.emptyProperty())
+                            .then((ContextMenu)null)
+                            .otherwise(contextMenu)
+            );
+
+            //double clic pour modifier le quota
+            row.setOnMouseClicked(event -> {
+                if(event.getClickCount() == 2 && !row.isEmpty()) {
+                    handleModifyQuota();
+                }
+            });
+
+            return row;
+        });
+    }
+
+    private void handleDeleteUser(){
+        // il faut supprimer tout d'un user!! (files, files_versions, shares, users...!!!)
     }
 
     /**
