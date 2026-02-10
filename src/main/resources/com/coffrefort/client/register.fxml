@@ -372,7 +372,7 @@
 <!--        </Hyperlink>-->
 
         <!-- Mentions légales en bas -->
-        <Hyperlink fx:id="mentionslégales"
+        <Hyperlink fx:id="mentionsLegales"
                    style="-fx-text-fill: #980b0b;
                         -fx-cursor: hand;"
                    text="Mentions Légales"

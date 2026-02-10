@@ -21,6 +21,9 @@ public final class UIDialogs {
         alert.setHeaderText(header);
         alert.setContentText(content);
 
+        // Style personnalisé
+        alert.getDialogPane().setMinWidth(500);
+
         Label icon = new Label("i");
         icon.setStyle(
                 "-fx-background-color: #0d5c05;" +
@@ -50,6 +53,9 @@ public final class UIDialogs {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(null);
+
+        // Style personnalisé
+        alert.getDialogPane().setMinWidth(500);
 
         Label icon = new Label("i");
         icon.setStyle(
@@ -101,6 +107,9 @@ public final class UIDialogs {
         alert.setHeaderText(header);
         alert.setContentText(content);
 
+        // Style personnalisé
+        alert.getDialogPane().setMinWidth(500);
+
         Label icon = new Label("!");
         icon.setStyle(
                 "-fx-background-color: #980b0b;" +
@@ -131,6 +140,10 @@ public final class UIDialogs {
         alert.setTitle(title);
         alert.setHeaderText(header);
         alert.setContentText(content);
+
+        // Style personnalisé
+        alert.getDialogPane().setMinWidth(500);
+        alert.getDialogPane().setMinHeight(250);
 
         // Icône bordeaux
         Label icon = new Label("!");

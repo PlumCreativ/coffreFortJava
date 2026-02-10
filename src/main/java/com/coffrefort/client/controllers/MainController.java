@@ -6,6 +6,7 @@ import com.coffrefort.client.model.FileEntry;
 import com.coffrefort.client.model.NodeItem;
 import com.coffrefort.client.model.PagedFilesResponse;
 import com.coffrefort.client.model.Quota;
+import com.coffrefort.client.util.SessionManager;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -703,6 +704,11 @@ public class MainController {
             controller.setDialogStage(dialogStage);
             controller.setApiClient(apiClient);
             controller.refreshNow();
+
+            // mise à jour le quota après la fermeture de quotaManagement.fxml
+            dialogStage.setOnHidden(event -> {
+                updateQuota();
+            });
 
             dialogStage.showAndWait();
         }catch (Exception e){
@@ -1566,6 +1572,9 @@ public class MainController {
                 apiClient.logout();
                 System.out.println("Déconnexion effectuée. Retour à l'écran de connexion...");
 
+                //arrêter la surveillance de session
+                SessionManager.getInstance().stopSessionMonitoring();
+
                 // Fermer la fenêtre de dialogue AVANT de changer de scène
                 dialogStage.close();
 
@@ -1588,7 +1597,9 @@ public class MainController {
                         //appel la méthode openlogin de App
                         if(app != null){
                             System.out.println("MainController - Appel de app.openLogin()");
+
                             app.openLogin(stage); //Appel DIRECT, pas de callback
+
                             System.out.println("Redirection vers la page de connexion réussie.");
                         }else{
                             System.err.println("Erreur: App n'est pas injecté dans MainController");
@@ -1603,8 +1614,8 @@ public class MainController {
 //                        stage.show();
 
                     } catch (Exception e) {
-                        System.err.println("Erreur lors du chargement de login2.fxml");
                         e.printStackTrace();
+                        System.err.println("Erreur lors du chargement de login2.fxml");
 
                         // Afficher un message d'erreur à l'utilisateur
 
@@ -1621,8 +1632,8 @@ public class MainController {
             dialogStage.showAndWait();
 
         } catch (IOException e) {
-            System.err.println("Erreur lors du chargement de confirmLogout.fxml");
             e.printStackTrace();
+            System.err.println("Erreur lors du chargement de confirmLogout.fxml");
 
             // Afficher un message d'erreur
             UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger la fenêtre de confirmation.");
@@ -1638,6 +1649,7 @@ public class MainController {
             e.printStackTrace();
 
         } finally {
+
             // Réactiver le bouton après fermeture du dialogue
             logoutButton.setDisable(false);
         }

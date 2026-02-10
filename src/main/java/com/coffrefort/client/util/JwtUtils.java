@@ -1,9 +1,14 @@
 package com.coffrefort.client.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 public class JwtUtils {
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
 
     /**
@@ -80,6 +85,71 @@ public class JwtUtils {
         }
 
         return false;
+    }
+
+    /**
+     * vérif si le token JWT est expiré
+     * @param token
+     * @return
+     */
+    public static boolean isTokenExpired(String token){
+        if(token == null || token.isEmpty()){
+            return true;
+        }
+
+        try{
+            String[] parts = token.split("\\.");
+            if(parts.length != 3){
+                return true;
+            }
+
+            //décoder le payload => partie 2
+            String payload = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+            JsonNode node = objectMapper.readTree(payload);
+
+            //récup expiration en secondes
+            if(node.has("exp")){
+                long exp = node.get("exp").asLong();
+                long now = System.currentTimeMillis() / 1000; //=>convertir en secondes
+
+                return now >= exp;
+            }
+            return true;
+        } catch (Exception e) {
+            System.out.println("Erreur lors de la vérification du token : " + e.getMessage());
+
+            //erreur => considérer comme true!!!
+            return true;
+        }
+    }
+
+    public static long getTimeUntilExpiration(String token){
+        if(token == null || token.isEmpty()){
+            return 0;
+        }
+
+        try {
+            String[] parts = token.split("\\.");
+            if(parts.length != 3){
+                return 0;
+            }
+
+            //à voir
+            String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
+            //String payload = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+            JsonNode node = objectMapper.readTree(payload);
+
+            if(node.has("exp")){
+                long exp = node.get("exp").asLong();
+                long now = System.currentTimeMillis() / 1000; //=>convertir en secondes
+
+                return Math.max(0, exp - now);
+            }
+            return 0;
+        }catch (Exception e){
+            System.out.println("Erreur lors du calcul du temps restant : " + e.getMessage());
+            return 0;
+        }
     }
 
 
