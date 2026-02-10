@@ -3,6 +3,12 @@ package com.coffrefort.client.controllers;
 import com.coffrefort.client.ApiClient;
 import com.coffrefort.client.App;
 import com.coffrefort.client.util.UIDialogs;
+import com.coffrefort.client.util.JsonUtils;
+import com.coffrefort.client.controllers.MentionsLegalesController;
+import com.coffrefort.client.controllers.ForgotPasswordController;
+import com.coffrefort.client.util.JwtUtils;
+import com.coffrefort.client.config.AppProperties;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -11,16 +17,16 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-import com.coffrefort.client.util.JsonUtils;
-import com.coffrefort.client.util.JwtUtils;
-import com.coffrefort.client.config.AppProperties;
+
 import javafx.scene.layout.GridPane;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import javax.swing.*;
@@ -53,6 +59,8 @@ public class LoginController {
     //Callback appelé quand user clique sur "S'inscrire"
     private Runnable onGoToRegister;
 
+    private Stage dialogStage;
+
 
     //méthodes
 
@@ -72,10 +80,17 @@ public class LoginController {
 
         //lier le lien à "mdp oublié"
         ForgotPasswordLink.setOnAction(event -> handleForgotPassword());
+
+        //lier le lien à "mentions légales"
+        mentionsLegales.setOnAction(event -> handleGoToMentionsLegalesFromLogin());
     }
 
     public void setApiClient(ApiClient apiClient) {
         this.apiClient = apiClient;
+    }
+
+    public void setDialogStage(Stage dialogStage) {
+        this.dialogStage = dialogStage;
     }
 
     //Setter pour recevoir le callback de App!!!
@@ -203,7 +218,6 @@ public class LoginController {
             }
         });
 
-
         task.setOnFailed(event -> {
             connexionButton.setDisable(false);
             statusLabel.setText("");
@@ -244,11 +258,23 @@ public class LoginController {
         try{
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/forgotPassword.fxml"));
 
-            Parent root = loader.load();
+            Scene scene = new Scene(loader.load());
+            // Récupération du contrôleur
+            ForgotPasswordController controller = loader.getController();
 
             Stage stage = (Stage)ForgotPasswordLink.getScene().getWindow();
-            stage.setScene(new Scene(root));
             stage.setTitle("CryptoVault - Mot de passe oublié");
+
+            stage.setResizable(false);
+            stage.setScene(scene);
+
+            controller.setDialogStage(stage);
+            controller.setApiClient(apiClient);
+
+            //Transmettre les callbacks
+            controller.setOnSuccess(onSuccess);
+            controller.setOnGoToRegister(onGoToRegister);
+
             stage.setHeight(700);
             stage.setWidth(400);
 
@@ -256,6 +282,39 @@ public class LoginController {
             e.printStackTrace();
             UIDialogs.showError("Erreur", null,
                     "Impossible d'ouvrir la page de réinitialisation : " + e.getMessage());
+        }
+    }
+
+
+    private void handleGoToMentionsLegalesFromLogin(){
+        try{
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/mentionsLegales.fxml"));
+
+            Scene scene = new Scene(loader.load());
+
+            // Récupération du contrôleur
+            MentionsLegalesController controller = loader.getController();
+            Stage stage = (Stage)mentionsLegales.getScene().getWindow();
+            stage.setTitle("CryptoVault - Mentions Légales");
+
+            stage.setResizable(false);
+            stage.setScene(scene);
+
+            controller.setDialogStage(stage);
+            controller.setApiClient(apiClient);
+
+            //Transmettre les callbacks
+            controller.setOnSuccess(onSuccess);
+            controller.setOnGoToRegister(onGoToRegister);
+
+            stage.setHeight(700);
+            stage.setWidth(750);
+            stage.centerOnScreen();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,
+                    "Impossible d'ouvrir la page de mentions légales : " + e.getMessage());
         }
     }
 

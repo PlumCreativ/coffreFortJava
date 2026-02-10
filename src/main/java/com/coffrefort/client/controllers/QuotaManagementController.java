@@ -18,6 +18,8 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
+import javax.naming.AuthenticationException;
+
 public class QuotaManagementController {
 
     @FXML private TextField searchField;
@@ -146,9 +148,6 @@ public class QuotaManagementController {
         });
     }
 
-    private void handleDeleteUser(){
-        // il faut supprimer tout d'un user!! (files, files_versions, shares, users...!!!)
-    }
 
     /**
      * charge la liste de user depuis l'API
@@ -260,6 +259,76 @@ public class QuotaManagementController {
             e.printStackTrace();
             UIDialogs.showError("Erreur", null, "Impossible d'ouvrir le dialogue" + e.getMessage());
         }
+    }
+
+    private void handleDeleteUser(){
+        UserQuota selected = usersTable.getSelectionModel().getSelectedItem();
+        if(selected == null){
+            return;
+        }
+
+        String currentEmail = apiClient.getCurrentUserEmail();
+        if(currentEmail != null && currentEmail.equals(selected.getEmail())){
+            UIDialogs.showError("Action interdite", null, "Vous ne pouvez pas supprimer votre propre compte");
+            return;
+        }
+
+        // confirmer avant de le supprimer
+        boolean confirmed = UIDialogs.showConfirmation(
+            "Supprimer l'utilisateur",
+            "Êtes-vous sûr de vouloir supprimer cet utilisateur ?",
+            "Cette action est irréversible.\n" +
+                    "TOUTES les données de " + selected.getEmail() + " seront définitivement supprimées.\n" +
+                    "• Fichiers et versions\n" +
+                    "• Dossiers\n" +
+                    "• Partages\n" +
+                    "• Logs de téléchargement\n\n" +
+                    "Conformité RGPD : suppression totale des données."
+        );
+
+        if(!confirmed){
+            return;
+        }
+
+        modifyQuotaButton.setDisable(true);
+        refreshButton.setDisable(true);
+        searchButton.setDisable(true);
+        showInfo("Suppression en cours...");
+
+        new Thread(()->{
+            try{
+                //appel API
+                String summary = apiClient.deleteUser(selected.getId());
+
+                Platform.runLater(()->{
+
+                    //afficher le résummé
+                    UIDialogs.showInfo("Suppression réussi", null, summary);
+
+                    refreshNow();
+                    modifyQuotaButton.setDisable(false);
+                    refreshButton.setDisable(false);
+                    searchButton.setDisable(false);
+                    hideInfo();
+                });
+            }catch (AuthenticationException e){
+                Platform.runLater(() ->{
+                    UIDialogs.showError("Accès refusé", null, e.getMessage());
+                    modifyQuotaButton.setDisable(false);
+                    refreshButton.setDisable(false);
+                    searchButton.setDisable(false);
+                    hideInfo();
+                });
+
+            }catch (Exception e){
+                e.printStackTrace();
+                UIDialogs.showError("Erreur", null, "Impossible de supprimer l'utilisateur " + e.getMessage());
+                modifyQuotaButton.setDisable(false);
+                refreshButton.setDisable(false);
+                searchButton.setDisable(false);
+                hideInfo();
+            }
+        }).start();
     }
 
     @FXML

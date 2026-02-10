@@ -3,6 +3,7 @@ package com.coffrefort.client;
 import com.coffrefort.client.controllers.LoginController;
 import com.coffrefort.client.controllers.MainController;
 import com.coffrefort.client.controllers.RegisterController;
+import com.coffrefort.client.util.SessionManager;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -17,12 +18,24 @@ import java.net.URL;
  */
 public class App extends Application {
 
-    private final ApiClient apiClient = new ApiClient();
+    //private final ApiClient apiClient = new ApiClient(); avant implementation de SessionManager
+    private ApiClient apiClient;
 
 
     //Connexion
     @Override
-    public void start(Stage stage) {
+    public void start(Stage stage) throws Exception {
+        this.apiClient = new ApiClient();
+
+        //config de SessionManager
+        SessionManager sessionManager = SessionManager.getInstance();
+        sessionManager.setApiClient(apiClient);
+        sessionManager.setOnSessionExpired(() -> {
+
+            //rediriger vers connexion
+            openLogin(stage);
+        });
+
         stage.setTitle("Coffre‑fort numérique — Mini client");
         openLogin(stage);
     }
@@ -34,6 +47,9 @@ public class App extends Application {
      */
     public void openLogin(Stage stage) {
         try {
+
+            //arrêter la session quand on retourne au login
+            SessionManager.getInstance().stopSessionMonitoring();
 
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/login2.fxml"));
 
@@ -59,17 +75,20 @@ public class App extends Application {
             });
 
             Parent root = loader.load();
-            Scene scene = new Scene(root, 420, 650);
-            stage.setTitle("Coffre-fort numérique — Connexion");
+            Scene scene = new Scene(root, 450, 650);
+
             stage.setScene(scene); //avec ça le stage reste 1024x640
+            stage.setTitle("Coffre-fort numérique — Connexion");
 
             //il faut redimensionner!! sinon il prend la taille de main.fxml
-            stage.setWidth(420);
+            stage.setWidth(450);
             stage.setHeight(650);
+            stage.setResizable(false);
             stage.centerOnScreen();
             stage.show();
         } catch (Exception e) {
-            throw new RuntimeException("Impossible de charger login.fxml", e);
+            e.printStackTrace();
+            throw new RuntimeException("Impossible de charger login2.fxml", e);
         }
     }
 
@@ -104,15 +123,18 @@ public class App extends Application {
 
             Parent root = loader.load();
             Scene scene = new Scene(root, 420, 680);
-            stage.setTitle("Coffre-fort numérique — Inscription");
+
             stage.setScene(scene);  //avec ça le stage reste 1024x640
+            stage.setTitle("Coffre-fort numérique — Inscription");
 
             //il faut redimensionner!!
             stage.setWidth(420);
             stage.setHeight(680);
+            stage.setResizable(false);
             stage.centerOnScreen();
             stage.show();
         } catch (Exception e) {
+            e.printStackTrace();
             throw new RuntimeException("Impossible de charger register.fxml", e);
         }
     }
@@ -126,6 +148,7 @@ public class App extends Application {
     private void openMainAndClose(Stage loginStage) {
         try {
             System.out.println("App - Chargement de main.fxml...");
+
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/main.fxml"));
             Parent root = loader.load();  //le controller est créé
 
@@ -136,6 +159,7 @@ public class App extends Application {
             //loader.setController(controller);
 
             System.out.println("App - Controller configuré, chargement du root...");
+
             //Parent root = loader.load();  //le controller est créé
             System.out.println("App - Configuration de la scène...");
 //            Stage mainStage = new Stage();
@@ -143,16 +167,23 @@ public class App extends Application {
 
             //réutiliser le stage existant à la place de créer un nouveau
             Scene scene = new Scene(root, 1024, 640);
+            loginStage.setScene(scene);
+
             loginStage.setTitle("Coffre‑fort — Espace personnel");
 
-            loginStage.setScene(scene);
             loginStage.setWidth(1024);
             loginStage.setHeight(640);
+            loginStage.setResizable(true);
             loginStage.centerOnScreen();
-            //loginStage.show();
+            loginStage.show(); // important afficher la fenetre??????? elotte commentben volt es ment
 
             // Fermer la fenêtre de login => avec ça je n'arriva pas ouvrir la vue de connexion
             //loginStage.close();
+
+            //démarrer la surveillance de session après connexion réussi
+            SessionManager.getInstance().startSessionMonitoring();
+
+            System.out.println("App - Interface principale affichée");
 
         } catch (Exception e) {
             e.printStackTrace();

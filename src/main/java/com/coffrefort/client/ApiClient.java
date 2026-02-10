@@ -4,6 +4,7 @@ import com.coffrefort.client.config.AppProperties;
 import com.coffrefort.client.model.*;
 import com.coffrefort.client.util.JsonUtils;
 import com.coffrefort.client.util.JwtUtils;
+import com.coffrefort.client.util.SessionManager;
 import com.coffrefort.client.util.UIDialogs;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.util.JSONPObject;
@@ -62,7 +63,57 @@ public class ApiClient {
     }
 
     /**
-     * Authentification utilisateur avec email et mot de passe via /auth/login
+     * récuperer email de user actuellement connecté
+     * (en même façon on peut récuperer userId...
+     * @return
+     */
+    public String getCurrentUserEmail(){
+
+        // extraire depuis AppProperties (persisté)
+        String email = AppProperties.get("auth.email");
+
+        //extraire du token actuel => fallback
+        if(email == null && authToken != null){
+            email = JwtUtils.extractEmail(authToken);
+        }
+        return email;
+    }
+
+    public Boolean isAdmin(){
+        return this.isAdmin;
+    }
+
+    /**
+     *
+     * @return l’instance singleton d’ApiClient (créée au premier appel)
+     */
+    public static ApiClient getInstance() {
+        if(INSTANCE == null) {
+            INSTANCE = new ApiClient();
+        }
+        return INSTANCE;
+    }
+
+    /**
+     * Indique si un token JWT valide est présent côté client
+     */
+    public boolean isAuthenticated() {
+        return this.authToken != null && !this.authToken.isEmpty();
+    }
+
+    /**
+     * Retourne le token JWT actuellement stocké en mémoire
+     */
+    public String getAuthToken() {
+        return this.authToken;
+    }
+
+
+    //Appel API
+
+    /**
+     * POST /auth/login
+     * Authentification utilisateur avec email et mot de passe
      * @param email Email de l'utilisateur
      * @param password Mot de passe
      * @return Le token JWT si succès, null sinon
@@ -87,6 +138,7 @@ public class ApiClient {
 
         // Envoi de la requête
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = executeRequest(request);
 
         int statusCode = response.statusCode();
         String responseBody = response.body();
@@ -128,14 +180,9 @@ public class ApiClient {
         return token;
     }
 
-
-
-    public Boolean isAdmin(){
-        return this.isAdmin;
-    }
-
     /**
-     * Inscrit un utilisateur via /auth/register puis le connecte via /auth/login et stocke le JWT
+     * POST/auth/register puis POST/auth/login
+     * Inscrit un utilisateur  puis le connecte => stocke le JWT
      * @param email Email de l'utilisateur
      * @param password Mot de passe
      * @param quotaTotal
@@ -220,16 +267,6 @@ public class ApiClient {
         return token;
     }
 
-    /**
-     *
-     * @return l’instance singleton d’ApiClient (créée au premier appel)
-     */
-    public static ApiClient getInstance() {
-        if(INSTANCE == null) {
-            INSTANCE = new ApiClient();
-        }
-        return INSTANCE;
-    }
 
     /**
      * Enregistre le token JWT et persist email/userId extraits du token dans AppProperties
@@ -266,7 +303,8 @@ public class ApiClient {
     }
 
     /**
-     * Crée un dossier (racine ou enfant) via POST /folders pour l’utilisateur connecté
+     * POST /folders
+     * Crée un dossier (racine ou enfant) pour l’utilisateur connecté
      * @param name
      * @param parentFolder
      * @return
@@ -321,7 +359,8 @@ public class ApiClient {
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         if (status == 201) {
@@ -334,9 +373,9 @@ public class ApiClient {
     }
 
 
-
     /**
-     * Upload un fichier dans un dossier (ou racine) via POST /files en multipart/form-data
+     * POST /files
+     * Upload un fichier dans un dossier (ou racine) en multipart/form-data
      * Upload un fichier dans la racine en réutilisant uploadFile(file, null)
      * @param file fichier local
      * @param folderId  id du dossier cible (peut être null pour racine si ton backend le gère)
@@ -372,8 +411,8 @@ public class ApiClient {
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
 
-        HttpResponse<String> response =
-                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String responseBody = response.body();
@@ -381,8 +420,9 @@ public class ApiClient {
         System.out.println("UPLOAD Status: " + status);
         System.out.println("UPLOAD Response: " + responseBody);
 
-        if (status == 401 || status == 403) {
-            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        //status == 401 => géré par executeRequest()
+        if (status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         if (status < 200 || status >= 300) {
@@ -397,7 +437,8 @@ public class ApiClient {
 
 
     /**
-     * Récupère tous les dossiers via GET /folders et reconstruit l’arborescence en NodeItem
+     * GET /folders
+     * Récupère tous les dossiers et reconstruit l’arborescence en NodeItem
      * @return
      * @throws Exception
      */
@@ -414,7 +455,8 @@ public class ApiClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
 
@@ -431,7 +473,8 @@ public class ApiClient {
     }
 
     /**
-     * Récupère la liste des fichiers d’un dossier via GET /files?folder=... et les parse en FileEntry
+     * GET /files ou /files?folder=...
+     * Récupère la liste des fichiers ou la liste des fichiers d’un dossier =>les parse en FileEntry
      * List<FileEntry> => sans pagination
      * @param folderId ID du dossier (null pour tous les fichiers)
      * @param limit Nombre de fichiers par page
@@ -458,7 +501,8 @@ public class ApiClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -487,22 +531,10 @@ public class ApiClient {
         System.out.println("Déconnexion effectuée.");
     }
 
-    /**
-     * Indique si un token JWT valide est présent côté client
-     */
-    public boolean isAuthenticated() {
-        return this.authToken != null && !this.authToken.isEmpty();
-    }
 
     /**
-     * Retourne le token JWT actuellement stocké en mémoire
-     */
-    public String getAuthToken() {
-        return this.authToken;
-    }
-
-    /**
-     * Récupère le quota utilisateur via GET /me/quota et retourne un objet Quota (used/total)
+     * GET /me/quota
+     * Récupère le quota utilisateur et retourne un objet Quota (used/total)
      */
     public Quota getQuota() throws Exception {
         if(authToken == null || authToken.isEmpty()) {
@@ -517,7 +549,8 @@ public class ApiClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -545,7 +578,8 @@ public class ApiClient {
 
 
     /**
-     * Supprime un fichier via DELETE /files/{id} (toutes ses versions) =>ok
+     * DELETE /files/{id}
+     * Supprime un fichier (toutes ses versions) =>ok
      * retourne true si succès
      * @param fileId
      * @return
@@ -567,7 +601,8 @@ public class ApiClient {
                 .DELETE()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -577,8 +612,9 @@ public class ApiClient {
             return;
         }
 
-        if(status == 401 || status == 403) {
-            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        //status == 401 => par executeRequest()
+        if(status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes");
         }
 
         if(status == 404) {
@@ -597,7 +633,8 @@ public class ApiClient {
     }
 
     /**
-     * Supprime un fichier via DELETE /files/{file_id}/versions/{id} =>ok
+     * DELETE /files/{file_id}/versions/{id}
+     * Supprime un fichier  =>ok
      * @param fileId
      * @param versionId
      * @throws Exception
@@ -622,7 +659,8 @@ public class ApiClient {
                 .DELETE()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -632,8 +670,9 @@ public class ApiClient {
             return;
         }
 
-        if(status == 401 || status == 403) {
-            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        //status == 401 => par executeRequest
+        if(status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         if(status == 404) {
@@ -660,7 +699,8 @@ public class ApiClient {
 
 
     /**
-     * Supprime un dossier via DELETE /folders/{id} et retourne true si succès =>ok
+     * DELETE /folders/{id}
+     * Supprime un dossier et retourne true si succès =>ok
      * @param folderId
      * @return
      * @throws Exception
@@ -682,7 +722,8 @@ public class ApiClient {
                 .DELETE()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -695,8 +736,9 @@ public class ApiClient {
             return;
         }
 
-        if(status == 401 || status == 403) {
-            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        //status == 401 => par executeRequest
+        if(status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         if(status == 404) {
@@ -726,7 +768,8 @@ public class ApiClient {
     }
 
     /**
-     * Télécharge un fichier via GET /files/{id}/download et l’écrit dans le fichier cible
+     * GET /files/{id}/download
+     * Télécharge un fichier et l’écrit dans le fichier cible
      * @param fileId
      * @param target
      * @throws Exception
@@ -758,7 +801,15 @@ public class ApiClient {
 
     }
 
-
+    /**
+     * GET /files/{id}/versions/{version}/download
+     * télecharger une version sur ordi par le propriétaire
+     * @param fileId
+     * @param version
+     * @param target
+     * @param progress
+     * @throws Exception
+     */
     public void downloadFileVersionTo(long fileId, int version,  File target, DownloadProgressListener progress) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
@@ -907,6 +958,18 @@ public class ApiClient {
         return createShare("folder", folderId, label, maxUses, expiresDays, false);
     }
 
+    /**
+     * POST /shares
+     * créer un share file ou folder
+     * @param kind
+     * @param targetId
+     * @param label
+     * @param maxUses
+     * @param expiresDays
+     * @param allowVersions
+     * @return
+     * @throws Exception
+     */
     public String createShare(String kind, int targetId, String label, Integer maxUses, Integer expiresDays, boolean allowVersions) throws Exception{
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
@@ -956,7 +1019,8 @@ public class ApiClient {
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody.toString(), StandardCharsets.UTF_8))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -993,9 +1057,10 @@ public class ApiClient {
             throw new Exception(kind.equals("file") ? "Fichier introuvable" : "Dossier introuvable");
         }
 
-        if(status == 401){
-            throw new AuthenticationException("Non autorisé : token invalide ou expiré");
-        }
+        //géré par executeRequest
+//        if(status == 401){
+//            throw new AuthenticationException("Non autorisé : token invalide ou expiré");
+//        }
 
         String error = JsonUtils.extractJsonField(body, "error");
         if(error == null || error.isEmpty()){
@@ -1009,7 +1074,8 @@ public class ApiClient {
     }
 
     /**
-     * Récupère tous les partages via GET /shares et les parse en List<ShareItem> => sans pagination
+     * GET /shares
+     * Récupère tous les partages et les parse en List<ShareItem> => sans pagination
      * PagedShareResponse listShares(int limit, int offset) => pour la pagination
      * @return
      * @throws Exception
@@ -1029,7 +1095,8 @@ public class ApiClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         System.out.println("ApiClient - Code de statut HTTP: " + status);
@@ -1056,7 +1123,8 @@ public class ApiClient {
     }
 
     /**
-     * Révoque un partage via PATCH /shares/{id}/revoke  => ok
+     * PATCH /shares/{id}/revoke
+     * Révoque un partage => ok
      * @param id
      * @throws Exception
      */
@@ -1074,7 +1142,8 @@ public class ApiClient {
                 .method("PATCH", HttpRequest.BodyPublishers.noBody())
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
 
@@ -1086,8 +1155,9 @@ public class ApiClient {
         }
 
         // Erreur d'authentification
-        if (status == 401 || status == 403) {
-            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        //status == 401 => par executeRequest
+        if (status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         // Erreur 404 : partage introuvable
@@ -1101,6 +1171,7 @@ public class ApiClient {
     }
 
     /**
+     * DELETE /shares/{id}
      * supprimer un partage  => OK
      * @param id
      * @return
@@ -1119,7 +1190,8 @@ public class ApiClient {
                 .DELETE()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
 
@@ -1129,8 +1201,9 @@ public class ApiClient {
             return;
         }
 
-        if(status == 401 || status == 403) {
-            throw new AuthenticationException("Non autorisé : token invalide ou expiré.");
+        //status == 401 => par executeRequest()
+        if(status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         if (status == 404) {
@@ -1143,25 +1216,9 @@ public class ApiClient {
     }
 
 
-    //**************************************  Methode PRIVATE   **************************************
-
-    private String parseErrorMessage(String body, String defaultMessage) {
-        try {
-            String error = JsonUtils.extractJsonField(body, "error");
-            if (error!= null && !error.isEmpty()) {
-                return JsonUtils.unescapeJsonString(error);
-            }
-        } catch (Exception e) {
-            // Ignore : le body n'est pas du JSON valide
-        }
-        return defaultMessage;
-    }
-
-    //************************************************************************************************
-
-
     /**
-     * Renomme un dossier via PUT /folders/{id} avec le nouveau nom
+     * PUT /folders/{id}
+     * Renomme un dossier avec le nouveau nom
      * @param folderId
      * @param newName
      * @throws Exception
@@ -1196,7 +1253,8 @@ public class ApiClient {
                 .PUT(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -1212,7 +1270,8 @@ public class ApiClient {
     }
 
     /**
-     * Renomme un fichier via PUT /files/{id} avec le nouveau nom
+     * PUT /files/{id}
+     * Renomme un fichier avec le nouveau nom
      * @param fileId
      * @param newName
      * @throws Exception
@@ -1243,7 +1302,8 @@ public class ApiClient {
                 .PUT(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -1271,7 +1331,8 @@ public class ApiClient {
 
 
     /**
-     * Liste les versions d’un fichier via GET /files/{id}/versions et retourne une List<VersionEntry>
+     * GET /files/{id}/versions
+     * Liste les versions d’un fichier et retourne une List<VersionEntry>
      * List<VersionEntry> => sans pagination
      * @param fileId
      * @param limit
@@ -1300,7 +1361,8 @@ public class ApiClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -1308,8 +1370,9 @@ public class ApiClient {
         System.out.println("GET " + url + "status = " + status);
         System.out.println("GET versions body = " + body );
 
-        if (status == 401 || status == 403){
-            throw new AuthenticationException("Non autorise : token invalide ou expire");
+        //status == 401 => par executeRequest
+        if (status == 403){
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         if(status != 200){
@@ -1325,7 +1388,8 @@ public class ApiClient {
     }
 
     /**
-     * Upload une nouvelle version d’un fichier via POST /files/{id}/versions en multipart avec suivi de progression =>ok
+     * POST /files/{id}/versions
+     * Upload une nouvelle version d’un fichier  en multipart avec suivi de progression =>ok
      * @param fileId
      * @param newFile
      * @param progress
@@ -1373,7 +1437,8 @@ public class ApiClient {
                 .POST(publisher)
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -1381,8 +1446,9 @@ public class ApiClient {
         System.out.println("POST " + url + "status = " + status);
         System.out.println("POST versions body = " + body );
 
-        if (status == 401 || status == 403){
-            throw new AuthenticationException("Non autorise :  token invalide ou expire");
+        //status == 401 => par executeRequest
+        if (status == 403){
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         if(status != 201){
@@ -1395,6 +1461,13 @@ public class ApiClient {
         }
     }
 
+    /**
+     * GET /files/{id}
+     * charge le smétadonnées des files dans FileDetailsController
+     * @param fileId
+     * @return
+     * @throws Exception
+     */
     public FileEntry getFile(int fileId) throws Exception {
         if(authToken == null || authToken.isEmpty()) {
             throw new IllegalStateException("Utilisateur non authentifié (auth.token manquant).");
@@ -1413,7 +1486,8 @@ public class ApiClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
 
@@ -1431,6 +1505,7 @@ public class ApiClient {
     }
 
     /**
+     * GET /admin/users/quotas
      * Récupère tous les utilisateurs avec leurs quotas (admin uniquement) =>ok
      */
     public List<UserQuota> getAllUsersWithQuota() throws Exception {
@@ -1445,7 +1520,8 @@ public class ApiClient {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
         String body = response.body();
@@ -1454,15 +1530,20 @@ public class ApiClient {
             return JsonUtils.parseUserQuotaList(body);
         }
 
-        if (status == 401 || status == 403) {
-            throw new AuthenticationException("Non autorisé");
+        //status == 401 => par executeRequest
+        if (status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         throw new RuntimeException("Erreur: " + body);
     }
 
     /**
-     * Modifie le quota d'un utilisateur (admin uniquement)
+     * PUT /admin/users/{id}/quota
+     * Modifie le quota d'un utilisateur (admin uniquement) =>ok
+     * @param userId
+     * @param newQuotaBytes
+     * @throws Exception
      */
     public void updateUserQuota(int userId, long newQuotaBytes) throws Exception {
         if (authToken == null || authToken.isEmpty()) {
@@ -1478,7 +1559,8 @@ public class ApiClient {
                 .PUT(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
 
         int status = response.statusCode();
 
@@ -1486,8 +1568,9 @@ public class ApiClient {
             return;
         }
 
-        if (status == 401 || status == 403) {
-            throw new AuthenticationException("Non autorisé");
+        //status == 401 => par executeRequest
+        if (status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
         }
 
         String error = JsonUtils.extractJsonField(response.body(), "error");
@@ -1505,7 +1588,85 @@ public class ApiClient {
         );
     }
 
+    /**
+     * DELETE /admin/users/{id} =>supprimer un user (admin uniquement)
+     * @param userId
+     * @throws Exception
+     */
+    public String deleteUser(int userId) throws Exception {
+        if (authToken == null || authToken.isEmpty()) {
+            throw new IllegalStateException("Utilisateur non authentifié");
+        }
 
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/admin/users/" + userId))
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer " + authToken)
+                .DELETE()
+                .build();
+
+        //HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = executeRequest(request);
+
+        int status = response.statusCode();
+
+        //200 => suppression réussi avec résummé
+        if(status == 200) {
+            System.out.println("Suppression de l'utilisateur réussi");
+
+            //extraire le résumé du backend
+            String body = response.body();
+            String message = JsonUtils.extractJsonField(body, "message");
+            String deletedFiles = JsonUtils.extractJsonField(body, "deleted_files");
+
+            if(message != null && deletedFiles != null){
+                return message + " (" + deletedFiles + " fichier(s) supprimé(s))";
+            }
+            return "Utilisateur supprimé avec succès";
+        }
+
+        // 204 No Content : Suppression réussie sans résumé (ancien comportement)
+        if (status == 204) {
+            System.out.println("Suppression de l'utilisateur réussie (204)");
+            return "Utilisateur supprimé avec succès";
+        }
+
+        //status == 401 => par executeRequest()
+        if(status == 403) {
+            throw new AuthenticationException("Accès refusé : permissions insuffisantes.");
+        }
+
+        if (status == 404) {
+            throw new Exception("Utilisateur introuvable (déjà supprimé ou n'existe pas).");
+        }
+
+        // 400 Bad Request => tentative d'auto-suppression
+        if (status == 400) {
+            String error = parseErrorMessage(response.body(), "Requête invalide");
+            throw new Exception(error);
+        }
+
+        //autres erreur
+        String errorMessage = parseErrorMessage(response.body(), "Erreur lors de la suppression de l'utilisateur");
+        throw new Exception(errorMessage + " (HTTP " + status + ")");
+    }
+
+
+    //**************************************  Methode PRIVATE   **************************************
+
+    private String parseErrorMessage(String body, String defaultMessage) {
+        try {
+            String error = JsonUtils.extractJsonField(body, "error");
+            if (error!= null && !error.isEmpty()) {
+                return JsonUtils.unescapeJsonString(error);
+            }
+        } catch (Exception e) {
+            // Ignore : le body n'est pas du JSON valide
+        }
+        return defaultMessage;
+    }
+
+    //************************************************************************************************
     //méthodes private  => HELPERS
 
 
@@ -1551,9 +1712,6 @@ public class ApiClient {
         }
         return root;
     }
-
-
-
 
     /**
      * Construit le body multipart/form-data (folder_id optionnel + part 'file') pour les uploads
@@ -1614,6 +1772,32 @@ public class ApiClient {
         //s'il n'y a pas dossier => passer en null
         return uploadFile(file, null);
     }
+
+
+    /**
+     * méthode générique pour faire des requêtes HTTP avec gestion du 401
+     * @param request
+     * @return
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws AuthenticationException
+     */
+    private HttpResponse<String> executeRequest(HttpRequest request) throws IOException, InterruptedException, AuthenticationException {
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        //détection l'expiration token => pas autorisé
+        int status = response.statusCode();
+        if(status == 401){
+            System.out.println("ApiClient - Token invalide ou expiré (401)");
+
+            //déclencher l'expiration de session
+            SessionManager.getInstance().handleSessionExpiration();
+
+            throw new AuthenticationException("Votre session a expiré.\nVeuillez vous reconnecter");
+        }
+        return response;
+    }
+
 
     /**
      * Exception levée en cas d’erreur d’authentification (token manquant/invalide, accès refusé)

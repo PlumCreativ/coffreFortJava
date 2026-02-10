@@ -2,8 +2,11 @@ package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.config.AppProperties;
 import com.coffrefort.client.util.JwtUtils;
+import com.coffrefort.client.util.UIDialogs;
 import javafx.application.Application;
 import javafx.concurrent.Task;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.stage.Stage;
@@ -39,6 +42,7 @@ public class RegisterController {
 
     @FXML private Button registerButton1;
     @FXML private Label statusLabel1;
+    @FXML private Hyperlink mentionsLegales;
 
     private ApiClient apiClient;
 
@@ -63,18 +67,19 @@ public class RegisterController {
     @FXML //=> il faut qu'il soit lier avec le .fxml!!
     private void initialize(){
 
-        //on clique sur la scèe => retirer le focus du champs
+        //on clique sur la scène => retirer le focus du champs
         rootPane.setOnMouseClicked(event -> {
             if(event.getTarget() != emailField1 && event.getTarget() != passwordField1 && event.getTarget() != confirmPasswordField1 ){
                 rootPane.requestFocus();
             }
         });
 
-
-
         // Binder le texte des 2 champs mot de passe => avoir le même texte
         passwordVisibleField1.textProperty().bindBidirectional(passwordField1.textProperty());
         confirmPasswordVisibleField1.textProperty().bindBidirectional(confirmPasswordField1.textProperty());
+
+        //lier le lien à "mentions légales"
+        mentionsLegales.setOnAction(event -> handleGoToMentionsLegalesFromRegister());
     }
 
     /**
@@ -313,6 +318,38 @@ public class RegisterController {
     public void openLogin(){
         if(onGoToLogin != null){
             onGoToLogin.run();
+        }
+    }
+
+    private void handleGoToMentionsLegalesFromRegister(){
+        try{
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/mentionsLegales.fxml"));
+
+            Scene scene = new Scene(loader.load());
+
+            // Récupération du contrôleur
+            MentionsLegalesController controller = loader.getController();
+            Stage stage = (Stage)mentionsLegales.getScene().getWindow();
+            stage.setTitle("CryptoVault - Mentions Légales");
+
+            stage.setResizable(false);
+            stage.setScene(scene);
+
+            controller.setDialogStage(stage);
+            controller.setApiClient(apiClient);
+
+            //Transmettre les callbacks
+            controller.setOnSuccess(onRegisterSuccess);
+            controller.setOnGoToRegister(onGoToLogin);
+
+            stage.setHeight(700);
+            stage.setWidth(750);
+            stage.centerOnScreen();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,
+                    "Impossible d'ouvrir la page de mentions légales : " + e.getMessage());
         }
     }
 

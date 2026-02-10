@@ -1,6 +1,7 @@
 package com.coffrefort.client.controllers;
 
 import com.coffrefort.client.ApiClient;
+import com.coffrefort.client.controllers.MainController;
 import com.coffrefort.client.model.UserQuota;
 import com.coffrefort.client.util.FileUtils;
 import com.coffrefort.client.util.UIDialogs;
@@ -133,6 +134,7 @@ public class ModifyQuotaController {
                     if(onSuccess != null){
                         onSuccess.run();
                     }
+
 
                     if(dialogStage != null){
                         dialogStage.close();

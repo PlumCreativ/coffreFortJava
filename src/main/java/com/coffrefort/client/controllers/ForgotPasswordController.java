@@ -10,6 +10,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 public class ForgotPasswordController {
@@ -21,13 +22,37 @@ public class ForgotPasswordController {
     @FXML private Hyperlink mentionsLegales;
 
     private ApiClient apiClient =  new ApiClient();
+    private Stage dialogStage;
+
+    private Runnable onSuccess;
+    private Runnable onGoToRegister;
 
     @FXML
     private void initialize() {
 
         //masquer le message par défaut
         hideMessage();
+
+        //lier le lien à "mentions légales"
+        mentionsLegales.setOnAction(event -> handleGoToMentionsLegalesFromForgot());
     }
+
+    public void setApiClient(ApiClient apiClient) {
+        this.apiClient = apiClient;
+    }
+
+    public void setDialogStage(Stage dialogStage) {
+        this.dialogStage = dialogStage;
+    }
+
+    public void setOnSuccess(Runnable onSuccess) {
+        this.onSuccess = onSuccess;
+    }
+
+    public void setOnGoToRegister(Runnable onGoToRegister) {
+        this.onGoToRegister = onGoToRegister;
+    }
+
 
     @FXML
     private void handleSendResetLink(){
@@ -73,11 +98,26 @@ public class ForgotPasswordController {
         try{
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/login2.fxml"));
 
-            Parent root = loader.load();
+            Scene scene = new Scene(loader.load());
+
+            // Récupération du contrôleur
+            LoginController controller = loader.getController();
 
             Stage stage = (Stage)backButton.getScene().getWindow();
-            stage.setScene(new Scene(root));
+
             stage.setTitle("CryptoVault - Connexion");
+            stage.setResizable(false);
+            stage.setScene(scene);
+
+            controller.setDialogStage(stage);
+            controller.setApiClient(apiClient);
+
+            controller.setOnSuccess(onSuccess);
+            controller.setOnGoToRegister(onGoToRegister);
+
+            stage.setWidth(450);
+            stage.setHeight(650);
+            stage.centerOnScreen();
 
         }catch(Exception e){
             e.printStackTrace();
@@ -85,6 +125,39 @@ public class ForgotPasswordController {
                     "Impossible de retourner à la page de connexion : " + e.getMessage());
         }
     }
+
+    private void handleGoToMentionsLegalesFromForgot(){
+        try{
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/coffrefort/client/mentionsLegales.fxml"));
+
+            Scene scene = new Scene(loader.load());
+
+            // Récupération du contrôleur
+            MentionsLegalesController controller = loader.getController();
+            Stage stage = (Stage)mentionsLegales.getScene().getWindow();
+            stage.setTitle("CryptoVault - Mentions Légales");
+
+            stage.setResizable(false);
+            stage.setScene(scene);
+
+            controller.setDialogStage(stage);
+            controller.setApiClient(apiClient);
+
+            //Transmettre les callbacks
+            controller.setOnSuccess(onSuccess);
+            controller.setOnGoToRegister(onGoToRegister);
+
+            stage.setHeight(700);
+            stage.setWidth(750);
+            stage.centerOnScreen();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            UIDialogs.showError("Erreur", null,
+                    "Impossible d'ouvrir la page de mentions légales : " + e.getMessage());
+        }
+    }
+
 
     @FXML
     private void handleContactSupport(){

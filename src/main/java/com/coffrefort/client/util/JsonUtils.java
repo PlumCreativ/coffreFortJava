@@ -141,7 +141,13 @@ public class JsonUtils {
      */
     public static String unescapeJsonString(String s) {
         if (s == null) return null;
-        return s.replace("\\/", "/")
+        return s
+                // séquences JSON classiques
+                .replace("\\n", "\n")
+                .replace("\\r", "\r")
+                .replace("\\t", "\t")
+
+                .replace("\\/", "/")
                 .replace("\\\"", "\"")
                 .replace("\\\\", "\\");
     }
