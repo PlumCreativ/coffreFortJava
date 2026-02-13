@@ -204,7 +204,7 @@ Au premier démarrage :
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Structure du projet
 
