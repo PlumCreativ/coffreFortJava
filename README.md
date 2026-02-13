@@ -1061,7 +1061,7 @@ Pour toute question ou problème :
 -  Déplacer fichiers et dossiers (drag & drop ou menu contextuel)
 -  Placer des fichiers à la racine (sans dossier parent)
 -  Amélioration barre de progression (annulation, vitesse en temps réel)
--  Implémentation "Mon historique" (consultation des actions passées
+-  Implémentation "Mon historique" (consultation des actions passées)
 -  Page "Mentions légales" (accessible depuis le menu Aide)
 -  Page "À propos" avec informations sur l'application
 
