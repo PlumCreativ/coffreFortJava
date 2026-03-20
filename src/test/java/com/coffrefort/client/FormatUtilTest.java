@@ -1,13 +1,16 @@
 package com.coffrefort.client;
 
 import com.coffrefort.client.util.FileUtils;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@DisplayName("FormatUtil Tests")
 public class FormatUtilTest {
 
     @Test
+    @DisplayName("Devrait formater la taille des fichiers correctement")
     public void testFormatFileSize() {
         assertEquals("1,5 KB", FileUtils.formatSize(1536));
         assertEquals("2,3 MB", FileUtils.formatSize(2411724));
