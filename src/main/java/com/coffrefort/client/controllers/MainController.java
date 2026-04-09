@@ -1568,65 +1568,60 @@ public class MainController {
             controller.setDialogStage(dialogStage);
             controller.setOnLogoutConfirmed(() -> {
 
-                // Déconnexion (suppression du token)
-                apiClient.logout();
-                System.out.println("Déconnexion effectuée. Retour à l'écran de connexion...");
-
-                //arrêter la surveillance de session
-                SessionManager.getInstance().stopSessionMonitoring();
-
-                // Fermer la fenêtre de dialogue AVANT de changer de scène
+                // Fermer le dialogue immédiatement (thread JavaFX)
                 dialogStage.close();
 
-                // Utiliser Platform.runLater pour changer de scène de manière sûre
-                Platform.runLater(() -> {
-                    try {
-
-//                        FXMLLoader loginLoader = new FXMLLoader(
-//                                getClass().getResource("/com/coffrefort/client/login2.fxml")
-//                        );
-//                        Parent loginRoot = loginLoader.load();
-//                        // Récupérer le contrôleur du login
-//                        LoginController loginController = loginLoader.getController();
-//                        // Injecter l'ApiClient existant
-//                        loginController.setApiClient(apiClient);
-
-                        // Récupérer la fenêtre principale (Stage)
-                        Stage stage = (Stage)logoutButton.getScene().getWindow();
-
-                        //appel la méthode openlogin de App
-                        if(app != null){
-                            System.out.println("MainController - Appel de app.openLogin()");
-
-                            app.openLogin(stage); //Appel DIRECT, pas de callback
-
-                            System.out.println("Redirection vers la page de connexion réussie.");
-                        }else{
-                            System.err.println("Erreur: App n'est pas injecté dans MainController");
-                            UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de retourner à l'écran de connexion");
-                        }
-
-                        // Remplacer la scène par celle du login
-//                        Scene loginScene = new Scene(loginRoot, 420, 600);
-//                        stage.setTitle("Connexion - CryptoVault");
-//                        stage.setScene(loginScene);
-//                        stage.centerOnScreen();
-//                        stage.show();
-
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        System.err.println("Erreur lors du chargement de login2.fxml");
-
-                        // Afficher un message d'erreur à l'utilisateur
-
-                        UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger l'écran de connexion." );
-//                        Alert alert = new Alert(Alert.AlertType.ERROR);
-//                        alert.setTitle("Erreur");
-//                        alert.setHeaderText("Erreur de déconnexion");
-//                        alert.setContentText("Impossible de charger l'écran de connexion.");
-//                        alert.showAndWait();
+                // Appel backend + nettoyage local dans un thread séparé
+                javafx.concurrent.Task<Void> logoutTask = new javafx.concurrent.Task<>() {
+                    @Override
+                    protected Void call() {
+                        // logoutFromServer() puis nettoyage local du token
+                        apiClient.logout();
+                        return null;
                     }
+                };
+
+                logoutTask.setOnSucceeded(evt -> {
+                    // Arrêter la surveillance de session
+                    SessionManager.getInstance().stopSessionMonitoring();
+                    System.out.println("Déconnexion effectuée. Retour à l'écran de connexion...");
+
+                    Platform.runLater(() -> {
+                        try {
+                            Stage stage = (Stage) logoutButton.getScene().getWindow();
+                            if (app != null) {
+                                System.out.println("MainController - Appel de app.openLogin()");
+                                app.openLogin(stage);
+                                System.out.println("Redirection vers la page de connexion réussie.");
+                            } else {
+                                System.err.println("Erreur: App n'est pas injecté dans MainController");
+                                UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de retourner à l'écran de connexion");
+                            }
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                            UIDialogs.showError("Erreur", "Erreur de déconnexion", "Impossible de charger l'écran de connexion.");
+                        }
+                    });
                 });
+
+                logoutTask.setOnFailed(evt -> {
+                    Throwable ex = logoutTask.getException();
+                    System.err.println("Erreur lors du logout serveur: " + (ex != null ? ex.getMessage() : "inconnue"));
+                    // Forcer le logout local même en cas d'échec réseau
+                    apiClient.logout();
+                    SessionManager.getInstance().stopSessionMonitoring();
+                    Platform.runLater(() -> {
+                        UIDialogs.showError("Avertissement", "Déconnexion partielle", "Le serveur n'a pas pu être contacté, vous avez été déconnecté localement.");
+                        try {
+                            Stage stage = (Stage) logoutButton.getScene().getWindow();
+                            if (app != null) app.openLogin(stage);
+                        } catch (Exception ex2) {
+                            ex2.printStackTrace();
+                        }
+                    });
+                });
+
+                new Thread(logoutTask, "logout-thread").start();
             });
 
             dialogStage.showAndWait();

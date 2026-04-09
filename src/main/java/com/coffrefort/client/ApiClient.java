@@ -521,14 +521,39 @@ public class ApiClient {
 
 
     /**
-     * Déconnecte l’utilisateur en supprimant le token en mémoire et dans AppProperties
+     * Appelle POST /logout sur le backend pour invalider la session côté serveur.
+     */
+    public void logoutFromServer() {
+        if (authToken == null || authToken.isEmpty()) {
+            System.out.println("logoutFromServer: pas de token, appel backend ignoré.");
+            return;
+        }
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/logout"))
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + authToken)
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build();
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("POST /logout status=" + response.statusCode());
+            System.out.println("POST /logout body=" + response.body());
+        } catch (Exception e) {
+            System.err.println("Avertissement: impossible de contacter le serveur pour le logout: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Déconnecte l'utilisateur : appelle d'abord le backend puis nettoie le token local.
      */
     public void logout() {
+        logoutFromServer();
         this.authToken = null;
         this.isAdmin = false;
         AppProperties.remove("auth.token");
         AppProperties.remove("auth.email");
-        System.out.println("Déconnexion effectuée.");
+        System.out.println("Déconnexion locale effectuée.");
     }
 
 
